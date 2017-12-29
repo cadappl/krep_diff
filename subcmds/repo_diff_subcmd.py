@@ -40,16 +40,16 @@ purposed formats.
 
             pdiff = None
             if len(args) > 1:
-                mandiff = RepoSubcmd.get_manifest(None, args[0])
+                mandiff = RepoSubcmd.get_manifest(options, args[0])
                 pdiff = dict()
                 for node in mandiff.get_projects():
                     pdiff[node.name] = node
 
-                manifest = RepoSubcmd.get_manifest(None, args[1])
+                manifest = RepoSubcmd.get_manifest(options, args[1])
             elif len(args) == 1:
-                manifest = RepoSubcmd.get_manifest(None, args[0])
+                manifest = RepoSubcmd.get_manifest(options, args[0])
             else:
-                manifest = RepoSubcmd.get_manifest(None, '.repo/manifest.xml')
+                manifest = RepoSubcmd.get_manifest(options, '.repo/manifest.xml')
 
             for node in manifest.get_projects():
                 if not os.path.exists(node.path):
