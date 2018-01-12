@@ -21,8 +21,7 @@ class RepoDiffSubcmd(GitDiffSubcmd):
 %prog [options] manifest.xml [diff-manifest.xml] ...
 
 Handle the git-repo project git commits diff and generate the reports in
-purposed formats.
-"""
+purposed formats."""
 
     def options(self, optparse):
         GitDiffSubcmd.options(self, optparse)
@@ -40,7 +39,7 @@ purposed formats.
 
         with FormattedFile(
             os.path.join(options.output, RepoDiffSubcmd.INDEX_HTML),
-            'Repo Diff', FormattedFile.HTML) as fp:
+            'Repo Diff', FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS) as fp:
 
             pdiff = None
             if len(args) > 1:
@@ -55,7 +54,7 @@ purposed formats.
             else:
                 manifest = RepoSubcmd.get_manifest(options, '.repo/manifest.xml')
 
-            for node in manifest.get_projects():
+            for k, node in enumerate(manifest.get_projects()):
                 if not os.path.exists(node.path):
                     logger.warning('%s not existed, ignored', node.path)
                     continue
@@ -95,61 +94,72 @@ purposed formats.
                     options.pattern, remote, options.gitiles)
 
                 if commits:
-                    continue
+                    def _linked_item(fp, dirpath, name):
+                        return fp.item(
+                            name, os.path.join(dirpath, name))
 
-                def _linked_item(fp, dirpath, name):
-                    return fp.item(
-                        name, os.path.join(dirpath, name))
-
-                column = list()
-                column.append(
-                    fp.item(
-                        node.name, os.path.join(options.output, node.name)))
-
-                column.append(fp.item('(%d)' % len(order)))
-
-                if format in ('all', 'html'):
+                    column = list()
                     column.append(
-                        _linked_item(fp, outputdir, GitDiffSubcmd.REPORT_HTML))
-                if format in ('all', 'text'):
-                    column.append(
-                        _linked_item(fp, outputdir, GitDiffSubcmd.REPORT_TEXT))
+                        fp.item(
+                            node.name, os.path.join(options.output, node.name)))
 
-                if options.pattern:
                     if format in ('all', 'html'):
                         column.append(
                             _linked_item(
-                                fp, outputdir, GitDiffSubcmd.FILTER_HTML))
+                                fp, outputdir, GitDiffSubcmd.REPORT_HTML))
                     if format in ('all', 'text'):
                         column.append(
                             _linked_item(
-                                fp, outputdir, GitDiffSubcmd.FILTER_TEXT))
+                                fp, outputdir, GitDiffSubcmd.REPORT_TEXT))
 
-                fp.section(' '.join([str(col) for col in column]))
+                    if options.pattern:
+                        if format in ('all', 'html'):
+                            column.append(
+                                _linked_item(
+                                    fp, outputdir, GitDiffSubcmd.FILTER_HTML))
+                        if format in ('all', 'text'):
+                            column.append(
+                                _linked_item(
+                                    fp, outputdir, GitDiffSubcmd.FILTER_TEXT))
 
-                if order:
-                    with fp.table() as table:
-                        for sha1, author, committer, subject in commits:
-                            if not remote:
-                                table.row(sha1, author, committer, subject)
-                                continue
+                    #- hide
+                    column.append(
+                        fp.item('(%d)' % len(commits),
+                        '#hide%d' % k, id='#hide%d' % k, css='hide'))
+                    #- show
+                    column.append(
+                        fp.item('(%d)' % len(commits),
+                        '#show%d' % k, id='#show%d' % k, css='show'))
+                    with fp.div():
+                      fp.section(' '.join([str(col) for col in column]))
+                      with fp.div(css='details'):
+                        with fp.table(css='hoverTable') as table:
+                            for sha1, author, committer, subject in commits:
+                                if not remote:
+                                    table.row(
+                                        sha1, author, committer, subject,
+                                        td_csses=GitDiffSubcmd.TABLE_CSS)
+                                    continue
 
-                            if options.gitiles:
-                                sha1a = fp.item(
-                                    sha1[:20], '%s#q,%s' % (remote, sha1))
-                                sha1b = fp.item(
-                                    sha1[20:],
-                                    '%s/plugins/gitiles/%s/+/%s^!'
-                                    % (remote, node.name, sha1))
+                                if options.gitiles:
+                                    sha1a = fp.item(
+                                        sha1[:20], '%s#q,%s' % (remote, sha1))
+                                    sha1b = fp.item(
+                                        sha1[20:],
+                                        '%s/plugins/gitiles/%s/+/%s^!'
+                                        % (remote, node.name, sha1))
 
-                                table.row(
-                                    fp.item((sha1a, sha1b), tag='pre'),
-                                    author, committer, subject)
-                            else:
-                                link = fp.item(
-                                    sha1, '%s#q,%s' % (remote, sha1),
-                                    tag='pre')
-                                table.row(link, author, committer, subject)
+                                    table.row(
+                                        fp.item((sha1a, sha1b), tag='pre'),
+                                        author, committer, subject,
+                                        td_csses=GitDiffSubcmd.TABLE_CSS)
+                                else:
+                                    link = fp.item(
+                                        sha1, '%s#q,%s' % (remote, sha1),
+                                        tag='pre')
+                                    table.row(
+                                        link, author, committer, subject,
+                                        td_csses=GitDiffSubcmd.TABLE_CSS)
 
         return True
 

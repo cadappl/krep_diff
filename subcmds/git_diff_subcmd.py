@@ -23,7 +23,30 @@ class GitDiffSubcmd(SubCommand):
     FILTER_TEXT = 'filter.txt'
     FILTER_HTML = 'filter.html'
 
-    IMMEDIATE_FILE = 'immediate.log'
+    HTML_CSS = (
+        '<style type="text/css">\n'
+        '  pre,code{font-family:courier;}\n'
+        '  h5 {font-family: "Roboto", Sans-Serif;}\n'
+        '  .details,\n'
+        '  .show,\n'
+        '  .hide:focus {display: none;}\n'
+        '  .hide:focus + .show {display: inline;}\n'
+        '  .hide:focus ~ #details {display: block;}\n\n'
+        '  .hoverTable{font-family: verdana,arial,sans-serif;'
+        'width:1200px;border-collapse:collapse;font-size:11px;'
+        'text-align:left;}\n'
+        '  .hoverTable td{padding:3px;}\n'
+        '  .hoverTable tr{background: #b8d1f3;}\n'
+        '  .hoverTable tr:nth-child(odd){background: #dae5f4;}\n'
+        '  .hoverTable tr:nth-child(even){background: #ffffff;}\n'
+        '  .hoverTable tr:hover {background-color: #bbbbbb;}\n'
+        '  .sha1 {width:350px}\n'
+        '  .email {width:200px}\n'
+        '  .title {width:450px}\n'
+        '</style>\n'
+    )
+
+    TABLE_CSS = ('sha1', 'email', 'email', 'title')
 
     help_summary = 'Generate report of the git commits between two SHA-1s'
     help_usage = """\
@@ -37,8 +60,7 @@ email pattern provided, the matched commits will be categorized into a
 separated report either.
 
 The output format would be set to the plain text or HTML with link to the
-gerrit server which can provide a query of the commit if gerrit is enabled.
-"""
+gerrit server which can provide a query of the commit if gerrit is enabled."""
 
     def options(self, optparse):
         SubCommand.options(self, optparse, modules=globals())
@@ -153,11 +175,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
             if format in ('all', 'html'):
                 fhtml = FormattedFile.open(
                     os.path.join(output, GitDiffSubcmd.REPORT_HTML),
-                    name, FormattedFile.HTML)
+                    name, FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS)
                 if pattern:
                     fhtmlp = FormattedFile.open(
                         os.path.join(output, GitDiffSubcmd.FILTER_HTML),
-                        name, FormattedFile.HTML)
+                        name, FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS)
         # pylint: enable=W0622
 
         logs = list()
@@ -201,14 +223,15 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
 
             if fhtml:
                 fhtml.section(refs)
-                with fhtml.table() as table:
+                with fhtml.table(css='hoverTable') as table:
                     for sha1, author, committer, subject in logs:
                         hauthor = fhtml.item(author, 'mailto:%s' % author)
                         hcommitter = fhtml.item(
                             committer, 'mailto:%s' % committer)
                         if not remote:
                             table.row(
-                                sha1, hauthor, hcommitter, subject)
+                                sha1, hauthor, hcommitter, subject,
+                                td_csses=GitDiffSubcmd.TABLE_CSS)
                             continue
 
                         if gitiles and name:
@@ -220,16 +243,18 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
 
                             table.row(
                                 fhtml.item((sha1a, sha1b), tag='pre'),
-                                hauthor, hcommitter, subject)
+                                hauthor, hcommitter, subject,
+                                td_csses=GitDiffSubcmd.TABLE_CSS)
                         else:
                             link = fhtml.item(
                                 sha1, '%s#/q/%s' % (remote, sha1), tag='pre')
                             table.row(
-                                link, hauthor, hcommitter, subject)
+                                link, hauthor, hcommitter, subject,
+                                td_csses=GitDiffSubcmd.TABLE_CSS)
 
                 if fhtmlp:
                     fhtmlp.section(refs)
-                    with fhtmlp.table() as table:
+                    with fhtmlp.table(css='hoverTable') as table:
                         for sha1, author, committer, subject in logs:
                             if not pattern.match('e,email', committer):
                                 continue

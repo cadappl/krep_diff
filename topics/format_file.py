@@ -5,6 +5,16 @@ class _Writer(object):
         self.writer = writer
         self.format = format
 
+    @staticmethod
+    def css(css, name='class'):
+        if css:
+            if name:
+                return ' %s="%s"' % (name, css)
+            else:
+                return '%s' % css
+        else:
+            return ''
+
     def write(self, *args, **kws):
         format = kws.get('format')
         if format is None or format == self.format:
@@ -13,9 +23,12 @@ class _Writer(object):
 
 
 class FormattedItem(object):
-    def __init__(self, text, link=None, tag=None, format=None):
+    def __init__(
+            self, text, link=None, tag=None, format=None, id=None, css=None):
         self.text = text
         self.link = link
+        self.id = id
+        self.css = css
         self.tag = tag
         self.format = format
 
@@ -33,12 +46,31 @@ class FormattedItem(object):
             else:
                 text = self.text
 
-            if self.link:
-                text = '<a href="%s">%s</a>' % (self.link, text)
             if self.tag:
                 text = '<%s>%s</%s>' % (self.tag, text, self.tag)
+            elif self.link:
+                text = '<a%s%s%s>%s</a>' % (
+                    _Writer.css(self.css),
+                    _Writer.css(self.id, 'id'),
+                    _Writer.css(self.link, 'href'),
+                    text)
 
         return text
+
+
+class FormatDiv(_Writer):
+    def __init__(self, writer, format, css=None):
+        _Writer.__init__(self, writer, format)
+        self.css = css
+
+    def __enter__(self):
+        self.write(
+            '<div%s>\n' % FormatDiv.css(self.css),
+            format=FormattedFile.HTML)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.write('</div>\n', format=FormattedFile.HTML)
+
 
 class FormatTable(_Writer):
     class FormatRow(_Writer):
@@ -46,7 +78,7 @@ class FormatTable(_Writer):
             _Writer.__init__(self, writer, format)
             self.column = column
 
-        def row(self, *args):
+        def row(self, *args, **kws):
             def _text(items):
                 if isinstance(items, (list, tuple)):
                     ret = ''
@@ -57,11 +89,15 @@ class FormatTable(_Writer):
                 else:
                     return str(items)
 
-            self.write('<tr>\n', format=FormattedFile.HTML)
+            self.write(
+                '<tr%s>\n' % FormatTable.css(kws.get('tr_css')),
+                format=FormattedFile.HTML)
 
+            td_csses = kws.get('td_csses')
             for k, arg in enumerate(args):
                 self.write(
-                    '<td>' + _text(arg) + '</td>\n', format=FormattedFile.HTML)
+                    '<td%s>' % FormatTable.css(td_csses and td_csses[k]) +
+                    _text(arg) + '</td>\n', format=FormattedFile.HTML)
                 if self.column and len(self.column) > k and self.column[k]:
                     fmt = '%%-%ds' % (self.column[k] + 2)
                     self.write(fmt % _text(arg), format=FormattedFile.TEXT)
@@ -71,12 +107,15 @@ class FormatTable(_Writer):
             self.write('</tr>', format=FormattedFile.HTML)
             self.write('\n')
 
-    def __init__(self, writer, format, column=None):
+    def __init__(self, writer, format, column=None, css=None):
         _Writer.__init__(self, writer, format)
+        self.css = css
         self.column = column
 
     def __enter__(self):
-        self.write('<table class="hoverTable">\n', format=FormattedFile.HTML)
+        self.write(
+            '<table%s>\n' % FormatTable.css(self.css),
+            format=FormattedFile.HTML)
         return FormatTable.FormatRow(self.writer, self.format, self.column)
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -84,7 +123,7 @@ class FormatTable(_Writer):
 
 
 class FileWithFormat(_Writer):
-    def __init__(self, name, title, format):
+    def __init__(self, name, title, format, css=None):
         self.file = open(name, 'wb')
         _Writer.__init__(self, self.file, format)
 
@@ -93,24 +132,11 @@ class FileWithFormat(_Writer):
             '  <title>' + title + '</title>\n',
             format=FormattedFile.HTML)
         self.write(
-            '<style type="text/css">\n'
-            '  pre,code{font-family:courier;}\n'
-            '  h5 {font-family: Georgia, serif;}\n'
-            '  .hoverTable{font-family: verdana,arial,sans-serif;'
-            'width:100%;border-collapse:collapse;font-size:11px;'
-            'text-align:left;}\n'
-            '  .hoverTable td{padding:3px;}\n'
-            '  .hoverTable tr{background: #b8d1f3;}\n'
-            '  .hoverTable tr:nth-child(odd){background: #dae5f4;}\n'
-            '  .hoverTable tr:nth-child(even){background: #ffffff;}\n'
-            '  .hoverTable tr:hover {background-color: #bbbbbb;}\n'
-            '</style>\n'
-            '<body>\n',
+            '%s<body>\n' % FileWithFormat.css(css, name=''),
             format=FormattedFile.HTML)
 
         self.write(title + '\n', format=FormattedFile.TEXT)
         self.write('=' * (len(title) + 1) + '\n', format=FormattedFile.TEXT)
-
 
     def close(self):
         self.write('</body>\n</html>', format=FormattedFile.HTML)
@@ -122,11 +148,15 @@ class FileWithFormat(_Writer):
         self.write('\n' + title + '\n', format=FormattedFile.TEXT)
         self.write('-' * (len(title) + 1) + '\n', format=FormattedFile.TEXT)
 
-    def table(self, column=None):
-        return FormatTable(self.file, self.format, column)
+    def div(self, css=None):
+        return FormatDiv(self.file, self.format, css)
 
-    def item(self, text, link=None, tag=None):
-        return FormattedItem(text, link=link, tag=tag, format=self.format)
+    def table(self, column=None, css=None):
+        return FormatTable(self.file, self.format, column, css=css)
+
+    def item(self, text, link=None, tag=None, id=None, css=None):
+        return FormattedItem(
+            text, link=link, tag=tag, format=self.format, id=id, css=css)
 
 
 class FormattedFile(object):
@@ -134,14 +164,16 @@ class FormattedFile(object):
     HTML = 'html'
     ALL = 'all'
 
-    def __init__(self, name, title, format):
+    def __init__(self, name, title, format, css=None):
         self.name = name
         self.file = None
         self.title = title
         self.format = format
+        self.css = css
 
     def __enter__(self):
-        self.file = FormattedFile.open(self.name, self.title, self.format)
+        self.file = FormattedFile.open(
+            self.name, self.title, self.format, css=self.css)
         return self.file
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -149,8 +181,8 @@ class FormattedFile(object):
             self.file.close()
 
     @staticmethod
-    def open(name, title, format):
-        return FileWithFormat(name, title, format)
+    def open(name, title, format, css=None):
+        return FileWithFormat(name, title, format, css)
 # pylint: enable=W0622
 
 
