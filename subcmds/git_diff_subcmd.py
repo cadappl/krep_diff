@@ -199,8 +199,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
                 fhtml.section(refs)
                 with fhtml.table() as table:
                     for sha1, author, committer, subject in logs:
+                        hauthor = fhtml.item(author, 'mailto:%s' % author)
+                        hcommitter = fhtml.item(
+                            committer, 'mailto:%s' % committer)
                         if not remote:
-                            table.row(sha1, author, committer, subject)
+                            table.row(
+                                sha1, hauthor, hcommitter, subject)
                             continue
 
                         if gitiles and name:
@@ -212,11 +216,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
 
                             table.row(
                                 fhtml.item((sha1a, sha1b), tag='pre'),
-                                author, committer, subject)
+                                hauthor, hcommitter, subject)
                         else:
                             link = fhtml.item(
                                 sha1, '%s#/q/%s' % (remote, sha1), tag='pre')
-                            table.row(link, author, committer, subject)
+                            table.row(
+                                link, hauthor, hcommitter, subject)
 
                 if fhtmlp:
                     fhtmlp.section(refs)
@@ -225,8 +230,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
                             if not pattern.match('e,email', committer):
                                 continue
 
+                            hauthor = fhtml.item(author, 'mailto:%s' % author)
+                            hcommitter = fhtml.item(
+                                committer, 'mailto:%s' % committer)
                             if not remote:
-                                table.row(sha1, author, committer, subject)
+                                table.row(sha1, hauthor, hcommitter, subject)
                                 continue
 
                             if gitiles and name:
@@ -238,12 +246,13 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
 
                                 table.row(
                                     fhtmlp.item((sha1a, sha1b), tag='pre'),
-                                    author, committer, subject)
+                                    hauthor, hcommitter, subject)
                             else:
                                 link = fhtmlp.item(
                                     sha1, '%s#q,%s' % (remote, sha1),
                                     tag='pre')
-                                table.row(link, author, committer, subject)
+                                table.row(link, hauthor, hcommitter, subject)
+
             if immediate:
                 GitDiffSubcmd._immediate(output, '## %s' % refs)
                 GitDiffSubcmd._immediate(output, '-' * (len(refs) + 3))
