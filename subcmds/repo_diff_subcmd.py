@@ -1,6 +1,10 @@
 
 import os
-import urlparse
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 
 from git_diff_subcmd import GitDiffSubcmd
 from krep_subcmds.repo_subcmd import RepoSubcmd
@@ -60,7 +64,7 @@ purposed formats.
                 #    logger.warning('%s: ignored with pattern', node.name)
                 #    continue
 
-                print 'Project %s' % node.name
+                print('Project %s' % node.name)
 
                 remote = options.remote
                 if not remote:
@@ -70,7 +74,7 @@ purposed formats.
                         remote = iremote.review
 
                 if remote:
-                    ulp = urlparse.urlparse(remote)
+                    ulp = urlparse(remote)
                     if not ulp.scheme:
                         remote = 'http://%s' % remote
 

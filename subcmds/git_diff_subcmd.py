@@ -1,6 +1,10 @@
 
 import os
-import urlparse
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 
 from topics import FormattedFile, GitProject, KrepError, Pattern, \
     RaiseExceptionIfOptionMissed, SubCommand
@@ -81,7 +85,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
         format = options.format and options.format.lower()  # pylint: disable=W0622
         GitDiffSubcmd.generate_report(
             args, GitProject(None, worktree=options.working_dir),
-            name, options.output, format, options.pattern,
+            name or '', options.output, format, options.pattern,
             remote, options.immediate, options.gitiles)
 
     @staticmethod
@@ -117,7 +121,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
         brefs = list()
         if len(args) < 2:
             if len(args) == 0:
-                print 'No SHA-1 provided, use HEAD by default'
+                print('No SHA-1 provided, use HEAD by default')
 
             erefs = _secure_sha(project, args[0] if args else 'HEAD')
             ret, head = project.rev_list('--max-parents=0', erefs)

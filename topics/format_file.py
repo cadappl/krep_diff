@@ -9,7 +9,7 @@ class _Writer(object):
         format = kws.get('format')
         if format is None or format == self.format:
             for arg in args:
-                self.writer.write(arg)
+                self.writer.write(arg.encode('utf-8'))
 
 
 class FormattedItem(object):
