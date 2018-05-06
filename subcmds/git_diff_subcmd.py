@@ -55,10 +55,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
             dest='output', action='store',
             help='Set the output directory')
         options.add_option(
-            '--immediate',
-            dest='immediate', action='store_true',
-            help='Set the immediate directory to store the immediate files')
-        options.add_option(
             '--gitiles',
             dest='gitiles', action='store_true',
             help='Enable gitiles links within the SHA-1')
@@ -86,7 +82,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
         GitDiffSubcmd.generate_report(
             args, GitProject(None, worktree=options.working_dir),
             name or '', options.output, format, options.pattern,
-            remote, options.immediate, options.gitiles)
+            remote, options.gitiles)
 
     @staticmethod
     def build_pattern(patterns):
@@ -107,15 +103,19 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
     @staticmethod
     def generate_report(  # pylint: disable=R0915
             args, project, name, output, format,  # pylint: disable=W0622
-            patterns, remote=None, immediate=False,
-            gitiles=True):
+            patterns, remote=None, gitiles=True):
         def _secure_sha(gitp, refs):
             ret, sha1 = gitp.rev_parse(refs)
             if ret == 0:
                 return sha1
             else:
-                raise RevisionError('Unknown %s' % refs)
+                ret, sha1 = gitp.rev_parse('%s/%s' % (project.remote, refs))
+                if ret == 0:
+                    return sha1
 
+            raise RevisionError('Unknown %s' % refs)
+
+        results = dict()
         pattern = GitDiffSubcmd.build_pattern(patterns)
 
         brefs = list()
@@ -144,6 +144,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
                 ftext = FormattedFile.open(
                     os.path.join(output, GitDiffSubcmd.REPORT_TEXT),
                     name, FormattedFile.TEXT)
+
                 if pattern:
                     ftextp = FormattedFile.open(
                         os.path.join(output, GitDiffSubcmd.FILTER_TEXT),
@@ -159,21 +160,24 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
                         name, FormattedFile.HTML)
         # pylint: enable=W0622
 
-        if immediate:
-            GitDiffSubcmd._immediate(output, '', clean=True)
-
+        logs = list()
         for ref in brefs:
             refs = '%s..%s' % (ref, erefs) \
                 if len(brefs) > 0 and len(args) > 1 else '%s' % erefs
-            ret, log = project.log(
-                '--format="%H %ae %ce %s"', '%s..%s' % (ref, erefs))
 
-            logs = list()
+            ret, sha1s = project.log('--format="%H', '%s..%s' % (ref, erefs))
             if ret == 0:
-                for line in log.split('\n'):
-                    line = line.strip('"').strip()
-                    if line:
-                        logs.append(line.split(' ', 3))
+                for sha1 in sha1s.split('\n'):
+                    sha1 = sha1.strip('"')
+                    if not sha1:
+                        continue
+
+                    values = list([sha1])
+                    for item in ('%ae', '%ce', '%s'):
+                        _, val = project.log(
+                            '--format=%s' % item, '%s^..%s' % (sha1, sha1))
+                        values.append(val.strip('"').strip())
+                    logs.append(values)
 
             if ftext:
                 column = [0, 0, 0, 0]
@@ -253,11 +257,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
                                     tag='pre')
                                 table.row(link, hauthor, hcommitter, subject)
 
-            if immediate:
-                GitDiffSubcmd._immediate(output, '## %s' % refs)
-                GitDiffSubcmd._immediate(output, '-' * (len(refs) + 3))
-                GitDiffSubcmd._immediate(output, log)
-
         if ftextp:
             ftextp.close()
         if fhtmlp:
@@ -267,7 +266,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled.
         if fhtml:
             fhtml.close()
 
-        return True
+        return logs
 
     @staticmethod
     def _immediate(path, text, clean=False):

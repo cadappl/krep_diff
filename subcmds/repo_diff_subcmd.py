@@ -90,38 +90,12 @@ purposed formats.
 
                 revisions.append(node.revision)
                 outputdir = os.path.join(options.output, node.name)
-                GitDiffSubcmd.generate_report(
+                commits = GitDiffSubcmd.generate_report(
                     revisions, project, node.name, outputdir, format,
-                    options.pattern, remote, options.immediate,
-                    options.gitiles)
+                    options.pattern, remote, options.gitiles)
 
-                order, sha1s = list(), dict()
-                if options.immediate:
-                    with open(
-                        os.path.join(
-                            outputdir, GitDiffSubcmd.IMMEDIATE_FILE),
-                        'rb') as fim:
-
-                        for line in fim:
-                            line = line.strip()
-                            if line.startswith('## '):
-                                #fp.section(line[3:])
-                                continue
-                            elif line.startswith('---'):
-                                continue
-                            elif len(line) == 0:
-                                continue
-
-                            sha1, author, committer, subject = \
-                                line.strip('"').split(' ', 3)
-
-                            if not pattern.match('e,email', committer):
-                                continue
-                            elif sha1 in sha1s:
-                                continue
-
-                            order.append(sha1)
-                            sha1s[sha1] = (author, committer, subject)
+                if commits:
+                    continue
 
                 def _linked_item(fp, dirpath, name):
                     return fp.item(
@@ -155,8 +129,7 @@ purposed formats.
 
                 if order:
                     with fp.table() as table:
-                        for sha1 in order:
-                            author, committer, subject = sha1s[sha1]
+                        for sha1, author, committer, subject in commits:
                             if not remote:
                                 table.row(sha1, author, committer, subject)
                                 continue
