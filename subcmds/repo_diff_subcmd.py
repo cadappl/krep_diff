@@ -80,7 +80,8 @@ purposed formats.
 
                 project = GitProject(
                     node.name,
-                    worktree=os.path.join(options.working_dir, node.path),
+                    worktree=os.path.join(
+                        self.get_absolute_working_dir(options), node.path),
                     revision=node.revision)
 
                 revisions = list()
