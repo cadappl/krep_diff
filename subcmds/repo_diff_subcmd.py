@@ -1,165 +1,250 @@
 
 import os
 
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
-
+from synchronize import synchronized
 from git_diff_subcmd import GitDiffSubcmd
 from krep_subcmds.repo_subcmd import RepoSubcmd
-from topics import GitProject, FormattedFile, RaiseExceptionIfOptionMissed
+from krep_subcmds.repo_mirror_subcmd import RepoMirrorSubcmd
+from topics import FormattedFile, SubCommandWithThread
 
 
-class RepoDiffSubcmd(GitDiffSubcmd):
-    COMMAND = 'repo-diff'
+class RepoDiffSubcmd(GitDiffSubcmd, SubCommandWithThread):
+  COMMAND = 'repo-diff'
 
-    INDEX_HTML = 'index.html'
+  INDEX_HTML = 'index.html'
 
-    help_summary = 'Generate the diff report for a repo project'
-    help_usage = """\
+  help_summary = 'Generate the diff report for a repo project'
+  help_usage = """\
 %prog [options] manifest.xml [diff-manifest.xml] ...
 
 Handle the git-repo project git commits diff and generate the reports in
 purposed formats."""
 
-    def options(self, optparse):
-        GitDiffSubcmd.options(self, optparse)
+  def options(self, optparse):
+    GitDiffSubcmd.options(self, optparse)
 
-    def execute(self, options, *args, **kws):
+    options = optparse.add_option_group('Repo-tool options')
+    options.add_option(
+      '--mirror',
+      dest='mirror', action='store_true',
+      help='Set to work with a git-repo mirror project')
 
-        RaiseExceptionIfOptionMissed(options.output, 'output is not set')
+  def execute(self, options, *args, **kws):
+    pattern = GitDiffSubcmd.build_pattern(options.pattern)
+    if not os.path.exists(options.output):
+      os.makedirs(options.output)
 
-        logger = self.get_logger()  # pylint: disable=E1101
+    def make_projects(projects):
+      rets = dict()
 
-        pattern = GitDiffSubcmd.build_pattern(options.pattern)
-        format = options.format and options.format.lower()  # pylint: disable=W0622
-        if not os.path.exists(options.output):
-            os.makedirs(options.output)
+      for project in projects:
+        rets[project.uri] = project
 
-        with FormattedFile(
-            os.path.join(options.output, RepoDiffSubcmd.INDEX_HTML),
-            'Repo Diff', FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS) as fp:
+      return rets
 
-            pdiff = None
-            if len(args) > 1:
-                mandiff = RepoSubcmd.get_manifest(options, args[0])
-                pdiff = dict()
-                for node in mandiff.get_projects():
-                    pdiff[node.name] = node
+    if options.mirror:
+      manifestf = RepoMirrorSubcmd.fetch_projects_in_manifest
+    else:
+      manifestf = RepoSubcmd.fetch_projects_in_manifest
 
-                manifest = RepoSubcmd.get_manifest(options, args[1])
-            elif len(args) == 1:
-                manifest = RepoSubcmd.get_manifest(options, args[0])
-            else:
-                manifest = RepoSubcmd.get_manifest(options, '.repo/manifest.xml')
+    if len(args) > 1:
+      first = make_projects(manifestf(options, args[0]))
+      second = make_projects(manifestf(options, args[1]))
+    else:
+      first = None
+      if len(args) > 0:
+        second = make_projects(manifestf(options, args[0]))
+      else:
+        second = make_projects(manifestf(options, mirror=options.mirror))
 
-            for k, node in enumerate(manifest.get_projects()):
-                if not os.path.exists(node.path):
-                    logger.warning('%s not existed, ignored', node.path)
-                    continue
-                #elif not pattern.match('p,project', node.name) and \
-                #        not pattern.match('p,project', node.path):
-                #    logger.warning('%s: ignored with pattern', node.name)
-                #    continue
+    class Results:
+      def __init__(self):
+        self.changes = dict()
 
-                print('Project %s' % node.name)
+      @synchronized
+      def put(self, name, value):
+        self.changes[name] = value
 
-                remote = options.remote
-                if not remote:
-                    iremote = manifest.get_remote(
-                        node.remote or manifest.get_default().remote)
-                    if iremote:
-                        remote = iremote.review
+      def get(self, name=None):
+        if name:
+          return self.changes[name]
+        else:
+          return self.changes
 
-                if remote:
-                    ulp = urlparse(remote)
-                    if not ulp.scheme:
-                        remote = 'http://%s' % remote
+    results = Results()
 
-                project = GitProject(
-                    node.name,
-                    worktree=os.path.join(
-                        self.get_absolute_working_dir(options), node.path),
-                    revision=node.revision)
+    def generate_report(
+        project, remote, options, origins, references, pattern, results):
+      argp = list()
+      if project in references:
+        argp.append(references[project].revision)
 
-                revisions = list()
-                if pdiff and node.name in pdiff:
-                    revisions.append(pdiff[node.name].revision)
+      argp.append(origins[project].revision)
+      GitDiffSubcmd.generate_report(
+        argp, origins[project],
+        project, options.output,
+        os.path.join(options.output, project), options.format,
+        pattern, remote, options.gitiles, results)
 
-                revisions.append(node.revision)
-                outputdir = os.path.join(options.output, node.name)
-                commits = GitDiffSubcmd.generate_report(
-                    revisions, project, node.name, outputdir, format,
-                    options.pattern, remote, options.gitiles)
+    self.run_with_thread(
+      options.job, second, generate_report, options.remote, options,
+      second, first, pattern, results)
 
-                if commits:
-                    def _linked_item(fp, dirpath, name):
-                        return fp.item(
-                            name, os.path.join(dirpath, name))
+    new_projects = list()
+    modified_projects = list()
+    removed_projects = list()
+    noupdate_projects = list()
 
-                    column = list()
-                    column.append(
-                        fp.item(
-                            node.name, os.path.join(options.output, node.name)))
+    projects = results.get()
+    for project in projects:
+      if project in first:
+        if results.get(project) == 0:
+          noupdate_projects.append(project)
+        else:
+          modified_projects.append(project)
+      else:
+        new_projects.append(project)
 
-                    if format in ('all', 'html'):
-                        column.append(
-                            _linked_item(
-                                fp, outputdir, GitDiffSubcmd.REPORT_HTML))
-                    if format in ('all', 'text'):
-                        column.append(
-                            _linked_item(
-                                fp, outputdir, GitDiffSubcmd.REPORT_TEXT))
+    for project in first:
+      if project not in second:
+        removed_projects.append(project)
 
-                    if options.pattern:
-                        if format in ('all', 'html'):
-                            column.append(
-                                _linked_item(
-                                    fp, outputdir, GitDiffSubcmd.FILTER_HTML))
-                        if format in ('all', 'text'):
-                            column.append(
-                                _linked_item(
-                                    fp, outputdir, GitDiffSubcmd.FILTER_TEXT))
+    with FormattedFile.open(
+        os.path.join(options.output, 'index.html'), 'html') as outfile:
+      with outfile.head() as head:
+        head.meta(charset='utf-8')
+        head.title('Git-repo Report for manifest difference')
 
-                    #- hide
-                    column.append(
-                        fp.item('(%d)' % len(commits),
-                        '#hide%d' % k, id='#hide%d' % k, css='hide'))
-                    #- show
-                    column.append(
-                        fp.item('(%d)' % len(commits),
-                        '#show%d' % k, id='#show%d' % k, css='show'))
-                    with fp.div():
-                      fp.section(' '.join([str(col) for col in column]))
-                      with fp.div(css='details'):
-                        with fp.table(css='hoverTable') as table:
-                            for sha1, author, committer, subject in commits:
-                                if not remote:
-                                    table.row(
-                                        sha1, author, committer, subject,
-                                        td_csses=GitDiffSubcmd.TABLE_CSS)
-                                    continue
+        head.comment(' Boot strap core CSS ')
+        head.link(
+          href=GitDiffSubcmd.deploy(
+            'asserts/css/bootstrap.min.css', options.output, options.output),
+          rel='stylesheet')
 
-                                if options.gitiles:
-                                    sha1a = fp.item(
-                                        sha1[:20], '%s#q,%s' % (remote, sha1))
-                                    sha1b = fp.item(
-                                        sha1[20:],
-                                        '%s/plugins/gitiles/%s/+/%s^!'
-                                        % (remote, node.name, sha1))
+      with outfile.body() as bd:
+        with bd.nav(clazz="nav navbar-dark bg-dark") as nav:
+          with nav.wbutton(clazz="navbar-toggler", type="button") as bnav:
+            bnav.span('', clazz="navbar-toggler-icon")
 
-                                    table.row(
-                                        fp.item((sha1a, sha1b), tag='pre'),
-                                        author, committer, subject,
-                                        td_csses=GitDiffSubcmd.TABLE_CSS)
-                                else:
-                                    link = fp.item(
-                                        sha1, '%s#q,%s' % (remote, sha1),
-                                        tag='pre')
-                                    table.row(
-                                        link, author, committer, subject,
-                                        td_csses=GitDiffSubcmd.TABLE_CSS)
+        bd.p()
+        with bd.div(id='accordion') as acc:
+          index = 1
+          if new_projects:
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as newp:
+              name = 'new_project'
+              hid = 'head_%d' % index
+              with newp.div(clazz='card-header', id=hid) as dhd:
+                with dhd.wh5(clazz='mb-0') as h5:
+                  with h5.wbutton(
+                      'New Projects',
+                      clazz='btn btn-link', data_toggle='collapse',
+                      data_target='#%s' % name, aria_expanded='true',
+                      aria_controls=name) as wb:
+                    wb.span(len(new_projects), clazz='badge badge-info')
 
-        return True
+              with newp.div(
+                  clazz='collapse show', id=name, aria_labelledby=hid,
+                  data_parent='#%s' % name) as cont:
+                with cont.div(clazz='card-body') as cbd:
+                  with cbd.table(clazz='table table-hover table-striped') \
+                      as table:
+                    for pname in sorted(new_projects):
+                      project = second[pname]
+                      with table.tr() as tr:
+                        with tr.wtd() as td:
+                          td.a(project.uri, href='%s/index.html' % project.uri)
+                          td.span(
+                            results.get(project.uri), clazz='badge badge-info')
+
+          if modified_projects:
+            index += 1
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as modp:
+              name = 'mod_project'
+              hid = 'head_%d' % index
+              with modp.div(clazz='card-header', id=hid) as dhd:
+                with dhd.wh5(clazz='mb-0') as h5:
+                  with h5.wbutton(
+                      'Modified Projects',
+                      clazz='btn btn-link', data_toggle='collapse',
+                      data_target='#%s' % name, aria_expanded='true',
+                      aria_controls=name) as wb:
+                    wb.span(len(modified_projects), clazz='badge badge-info')
+
+              with modp.div(
+                  clazz='collapse show', id=name, aria_labelledby=hid,
+                  data_parent='#%s' % name) as cont:
+                with cont.div(clazz='card-body') as cbd:
+                  with cbd.table(clazz='table table-hover table-striped') \
+                      as table:
+                    for pname in sorted(modified_projects):
+                      project = second[pname]
+                      with table.tr() as tr:
+                        with tr.wtd() as td:
+                          td.span(
+                            results.get(project.uri), clazz='badge badge-info')
+                          td.a(project.uri, href='%s/index.html' % project.uri)
+
+          if noupdate_projects:
+            index += 1
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as noupdt:
+              name = 'noupdt_project'
+              hid = 'head_%d' % index
+              with noupdt.div(clazz='card-header', id=hid) as dhd:
+                with dhd.wh5(clazz='mb-0') as h5:
+                  with h5.wbutton(
+                      'Non-updated Projects',
+                      clazz='btn btn-link', data_toggle='collapse',
+                      data_target='#%s' % name, aria_expanded='true',
+                      aria_controls=name) as wb:
+                    wb.span(len(noupdate_projects), clazz='badge badge-info')
+
+              with noupdt.div(
+                  clazz='collapse show', id=name, aria_labelledby=hid,
+                  data_parent='#%s' % name) as cont:
+                with cont.div(clazz='card-body') as cbd:
+                  with cbd.table(clazz='table table-hover table-striped') \
+                      as table:
+                    for pname in sorted(noupdate_projects):
+                      with table.tr() as tr:
+                        with tr.wtd() as td:
+                          td.a(pname)
+
+          if removed_projects:
+            index += 1
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as remp:
+              name = 'rm_project'
+              hid = 'head_%d' % index
+              with remp.div(clazz='card-header', id=hid) as dhd:
+                with dhd.wh5(clazz='mb-0') as h5:
+                  with h5.wbutton(
+                      'Removed Projects',
+                      clazz='btn btn-link', data_toggle='collapse',
+                      data_target='#%s' % name, aria_expanded='true',
+                      aria_controls=name) as wb:
+                    wb.span(len(removed_projects), clazz='badge badge-info')
+
+              with remp.div(
+                  clazz='collapse show', id=name, aria_labelledby=hid,
+                  data_parent='#%s' % name) as cont:
+                with cont.div(clazz='card-body') as cbd:
+                  with cbd.table(clazz='table table-hover table-striped') \
+                      as table:
+                    for pname in sorted(removed_projects):
+                      with table.tr() as tr:
+                        with tr.wtd() as td:
+                          td.a(pname)
+
+        bd.script(
+          "window.jQuery || document.write('<script src=\"%s\">"
+          "<\/script>')" % GitDiffSubcmd.deploy(
+            'asserts/js/vendor/jquery-slim.min.js',
+            options.output, options.output),
+          _escape=False)
+        # write an empty string to keep <script></script> to make js working
+        bd.script(
+          '',
+          src=GitDiffSubcmd.deploy(
+            'asserts/js/bootstrap.min.js', options.output, options.output))
+
+    return True
 

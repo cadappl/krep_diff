@@ -1,55 +1,26 @@
 
 import os
+import shutil
+
+from collections import namedtuple
+from synchronize import synchronized
 
 try:
-    from urllib.parse import urlparse
+  from urllib.parse import urlparse
 except ImportError:
-    from urlparse import urlparse
+  from urlparse import urlparse
 
-from topics import FormattedFile, GitProject, KrepError, Pattern, \
-    RaiseExceptionIfOptionMissed, SubCommand
+from topics import FormattedFile, GitProject, Pattern, SubCommand
 
 
-class RevisionError(KrepError):
-    """Indicates the unknown revision."""
+CommitInfo = namedtuple('CommitInfo', 'sha1,author,title,info')
 
 
 class GitDiffSubcmd(SubCommand):
-    COMMAND = 'git-diff'
+  COMMAND = 'git-diff'
 
-    REPORT_TEXT = 'report.txt'
-    REPORT_HTML = 'report.html'
-
-    FILTER_TEXT = 'filter.txt'
-    FILTER_HTML = 'filter.html'
-
-    HTML_CSS = (
-        '<style type="text/css">\n'
-        '  pre,code{font-family:courier;}\n'
-        '  h5 {font-family: "Roboto", Sans-Serif;}\n'
-        '  .details,\n'
-        '  .show,\n'
-        '  .hide:focus {display: none;}\n'
-        '  .hide:focus + .show {display: inline;}\n'
-        '  .hide:focus ~ #details {display: block;}\n\n'
-        '  .hoverTable{font-family: verdana,arial,sans-serif;'
-        'width:1200px;border-collapse:collapse;font-size:11px;'
-        'text-align:left;}\n'
-        '  .hoverTable td{padding:3px;}\n'
-        '  .hoverTable tr{background: #b8d1f3;}\n'
-        '  .hoverTable tr:nth-child(odd){background: #dae5f4;}\n'
-        '  .hoverTable tr:nth-child(even){background: #ffffff;}\n'
-        '  .hoverTable tr:hover {background-color: #bbbbbb;}\n'
-        '  .sha1 {width:350px}\n'
-        '  .email {width:200px}\n'
-        '  .title {width:450px}\n'
-        '</style>\n'
-    )
-
-    TABLE_CSS = ('sha1', 'email', 'email', 'title')
-
-    help_summary = 'Generate report of the git commits between two SHA-1s'
-    help_usage = """\
+  help_summary = 'Generate report of the git commits between two SHA-1s'
+  help_usage = """\
 %prog [options] SHA-1 [SHA-1] ...
 
 Generates the report of the commits between two SHA-1s in purposed format.
@@ -62,243 +33,341 @@ separated report either.
 The output format would be set to the plain text or HTML with link to the
 gerrit server which can provide a query of the commit if gerrit is enabled."""
 
-    def options(self, optparse):
-        SubCommand.options(self, optparse, modules=globals())
+  def options(self, optparse):
+    SubCommand.options(self, optparse, modules=globals())
 
-        options = optparse.add_option_group('Remote options')
-        options.add_option(
-            '-r', '--remote',
-            dest='remote', action='store',
-            help='Set the remote server location')
+    options = optparse.add_option_group('Remote options')
+    options.add_option(
+      '-r', '--remote',
+      dest='remote', action='store',
+      help='Set the remote server location')
 
-        options = optparse.add_option_group('Output options')
-        options.add_option(
-            '-o', '--output',
-            dest='output', action='store',
-            help='Set the output directory')
-        options.add_option(
-            '--gitiles',
-            dest='gitiles', action='store_true',
-            help='Enable gitiles links within the SHA-1')
-        options.add_option(
-            '--format',
-            dest='format', metavar='TEXT, HTML, ALL',
-            action='store', default='text',
-            help='Set the report format')
+    options = optparse.get_option_group('--hook-dir') or \
+      optparse.add_option_group('File options')
+    options.add_option(
+      '-o', '--output',
+      dest='output', action='store', default='out',
+      help='Set the output directory, default: %default')
 
-    def execute(self, options, *args, **kws):
-        SubCommand.execute(self, options, *args, **kws)
+    options = optparse.add_option_group('Format options')
+    options.add_option(
+      '--gitiles',
+      dest='gitiles', action='store_true',
+      help='Enable gitiles links within the SHA-1')
+    options.add_option(
+      '--format',
+      dest='format', metavar='TEXT, HTML, ALL',
+      action='store', default='html',
+      help='Set the report format. default: %default')
 
-        RaiseExceptionIfOptionMissed(options.output, 'output is not set')
+  def execute(self, options, *args, **kws):
+    SubCommand.execute(self, options, *args, **kws)
 
-        name, remote = None, options.remote
-        if options.remote:
-            ulp = urlparse.urlparse(options.remote)
-            if ulp.path:
-                name = ulp.path.strip('/')
-                remote = '%s://%s' % (ulp.scheme, ulp.hostname)
-                if ulp.port:
-                    remote += ':%d' % ulp.port
+    name, remote = None, options.remote
+    project = GitProject(None, worktree=options.working_dir)
 
-        format = options.format and options.format.lower()  # pylint: disable=W0622
-        GitDiffSubcmd.generate_report(
-            args, GitProject(None, worktree=options.working_dir),
-            name or '', options.output, format, options.pattern,
-            remote, options.gitiles)
+    ulp = None
+    if options.remote:
+      ulp = urlparse(options.remote)
+    else:
+      ret, urlproj = project.ls_remote('--get-url')
+      if ret == 0 and urlproj:
+        ulp = urlparse(urlproj)
 
-    @staticmethod
-    def build_pattern(patterns):
-        if patterns:
-            pats = list()
-            for pat in patterns:
-                if pat.find(':') > 0:
-                    pats.append(pat)
-                else:
-                    pats.append('email:%s' % pat)
+    if ulp and ulp.path:
+      name = ulp.path.strip('/')
+      remote = '%s://%s' % (ulp.scheme, ulp.hostname)
+      if ulp.port:
+        remote += ':%d' % ulp.port
 
-            pattern = Pattern(pats)
+    format = options.format and options.format.lower()  # pylint: disable=W0622
+    GitDiffSubcmd.generate_report(
+      args, project,
+      name or '', options.output, options.output, format,
+      options.pattern, remote, options.gitiles)
+
+  @staticmethod
+  def build_pattern(patterns):
+    if patterns:
+      pats = list()
+      for pat in patterns:
+        if pat.find(':') > 0:
+          pats.append(pat)
         else:
-            pattern = Pattern()
+          pats.append('email:%s' % pat)
 
-        return pattern
+      pattern = Pattern(pats)
+    else:
+      pattern = Pattern()
 
-    @staticmethod
-    def generate_report(  # pylint: disable=R0915
-            args, project, name, output, format,  # pylint: disable=W0622
-            patterns, remote=None, gitiles=True):
-        def _secure_sha(gitp, refs):
-            ret, sha1 = gitp.rev_parse(refs)
-            if ret == 0:
-                return sha1
-            else:
-                ret, sha1 = gitp.rev_parse('%s/%s' % (project.remote, refs))
-                if ret == 0:
-                    return sha1
+    return pattern
 
-            raise RevisionError('Unknown %s' % refs)
+  @staticmethod
+  @synchronized
+  def deploy(script, root, refer):
+    origin = os.path.realpath(
+      '%s/../%s' % (os.path.dirname(__file__), script))
+    target = os.path.join(root, script)
 
-        results = dict()
-        pattern = GitDiffSubcmd.build_pattern(patterns)
+    if not os.path.exists(target):
+      dirname = os.path.dirname(target)
+      if not os.path.exists(dirname):
+        os.makedirs(dirname)
 
-        brefs = list()
-        if len(args) < 2:
-            if len(args) == 0:
-                print('No SHA-1 provided, use HEAD by default')
+      shutil.copyfile(origin, target)
 
-            erefs = _secure_sha(project, args[0] if args else 'HEAD')
-            ret, head = project.rev_list('--max-parents=0', erefs)
-            if ret == 0:
-                brefs.extend(head.split('\n'))
-        else:
-            erefs = _secure_sha(project, args[1])
-            brefs.append(_secure_sha(project, args[0]))
+    return os.path.relpath(target, refer)
 
-        ftext = None
-        fhtml = None
-        ftextp = None
-        fhtmlp = None
-        if not os.path.exists(output):
-            os.makedirs(output)
+  @staticmethod
+  def get_commits(project, sref, eref, *options):
+    ret, sha1s = project.log(*options, '--pretty=%H', '%s..%s' % (sref, eref))
+    if ret == 0:
+      vals = list()
+      for sha1 in sha1s.split('\n'):
+        vals.append(sha1.strip('"'))
 
-        # pylint: disable=W0622
-        if format:
-            if format in ('all', 'text'):
-                ftext = FormattedFile.open(
-                    os.path.join(output, GitDiffSubcmd.REPORT_TEXT),
-                    name, FormattedFile.TEXT)
+      return vals
+    else:
+      return list()
 
-                if pattern:
-                    ftextp = FormattedFile.open(
-                        os.path.join(output, GitDiffSubcmd.FILTER_TEXT),
-                        name, FormattedFile.TEXT)
+  @staticmethod
+  def get_commits_detail(project, sref, eref, *options):
+    details = dict()
+    sha1s = GitDiffSubcmd.get_commits(project, sref, eref, *options)
+    for sha1 in sha1s:
+      vals = list()
+      for item in ('%ae', '%s'):
+        _, val = project.show(
+          '--no-patch', '--oneline', '--format=%s' % item, sha1)
+        vals.append(val)
 
-            if format in ('all', 'html'):
-                fhtml = FormattedFile.open(
-                    os.path.join(output, GitDiffSubcmd.REPORT_HTML),
-                    name, FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS)
-                if pattern:
-                    fhtmlp = FormattedFile.open(
-                        os.path.join(output, GitDiffSubcmd.FILTER_HTML),
-                        name, FormattedFile.HTML, css=GitDiffSubcmd.HTML_CSS)
-        # pylint: enable=W0622
+      ret, info = project.show('--name-only', sha1)
+      details[sha1] = CommitInfo(sha1, vals[0], vals[1], info)
 
-        logs = list()
-        for ref in brefs:
-            refs = '%s..%s' % (ref, erefs) \
-                if len(brefs) > 0 and len(args) > 1 else '%s' % erefs
+    return details
 
-            ret, sha1s = project.log('--format="%H', '%s..%s' % (ref, erefs))
-            if ret == 0:
-                for sha1 in sha1s.split('\n'):
-                    sha1 = sha1.strip('"')
-                    if not sha1:
-                        continue
+  @staticmethod
+  def update_table(
+      accord, details, logs, id, title, remote=None,
+      name=None, gitiles=True):
+    tid = 'div_%d' % id
+    hid = 'header_%d' % id
 
-                    values = list([sha1])
-                    for item in ('%ae', '%ce', '%s'):
-                        _, val = project.log(
-                            '--format=%s' % item, '%s^..%s' % (sha1, sha1))
-                        values.append(val.strip('"').strip())
-                    logs.append(values)
+    with accord.div(clazz='card w-75', id='entire_%d' % id) as dcard:
+      with dcard.div(clazz='card-header', id=hid) as dhd:
+        with dhd.wh5(clazz='mb-0') as h5:
+          with h5.wbutton(
+              title,
+              clazz='btn btn-link', data_toggle='collapse',
+              data_target='#%s' % tid, aria_expanded='true',
+              aria_controls=tid) as wb:
+            wb.span(len(logs), clazz='badge badge-info')
 
-            if ftext:
-                column = [0, 0, 0, 0]
-                for item in logs:
-                    for k, col in enumerate(item):
-                        length = len(col)
-                        if length > column[k]:
-                            column[k] = length
+      with dcard.div(
+          clazz='collapse show', id=tid, aria_labelledby=hid,
+          data_parent='#%s' % tid) as cont:
+        with cont.div(clazz='card-body') as cbd:
+          with cbd.table(clazz='table table-hover table-striped') as table:
+            with table.tr() as tr:
+              tr.th('SHA-1', scope='col')
+              tr.th('Author', scope='col')
+              #tr.th('Committer', scope='col')
+              tr.th('Title', scope='col')
 
-                ftext.section(refs)
-                with ftext.table(column) as table:
-                    for sha1, author, committer, subject in logs:
-                        table.row(sha1, author, committer, subject)
-
-                if ftextp:
-                    ftextp.section(refs)
-                    with ftextp.table(column) as table:
-                        for sha1, author, committer, subject in logs:
-                            if pattern.match('e,email', committer):
-                                table.row(sha1, author, committer, subject)
-
-            if fhtml:
-                fhtml.section(refs)
-                with fhtml.table(css='hoverTable') as table:
-                    for sha1, author, committer, subject in logs:
-                        hauthor = fhtml.item(author, 'mailto:%s' % author)
-                        hcommitter = fhtml.item(
-                            committer, 'mailto:%s' % committer)
-                        if not remote:
-                            table.row(
-                                sha1, hauthor, hcommitter, subject,
-                                td_csses=GitDiffSubcmd.TABLE_CSS)
-                            continue
-
-                        if gitiles and name:
-                            sha1a = fhtml.item(
-                                sha1[:20], '%s#/q/%s' % (remote, sha1))
-                            sha1b = fhtml.item(
-                                sha1[20:], '%s/plugins/gitiles/%s/+/%s^!'
-                                % (remote, name, sha1))
-
-                            table.row(
-                                fhtml.item((sha1a, sha1b), tag='pre'),
-                                hauthor, hcommitter, subject,
-                                td_csses=GitDiffSubcmd.TABLE_CSS)
+            for sha1 in logs:
+              with table.tr() as tr:
+                with tr.wtd() as td:
+                  if name:
+                      with td.wpre(_wrap=False) as pre:
+                        if gitiles:
+                          pre.a(
+                            sha1[:20],
+                            href='%s/#/q/%s' % (remote, sha1))
+                          pre.a(
+                            sha1[20:],
+                            href='%s/plugins/gitiles/%s/+/%s^!' %
+                              (remote, name, sha1))
                         else:
-                            link = fhtml.item(
-                                sha1, '%s#/q/%s' % (remote, sha1), tag='pre')
-                            table.row(
-                                link, hauthor, hcommitter, subject,
-                                td_csses=GitDiffSubcmd.TABLE_CSS)
+                          pre.a(sha1, href='%s/#/q/%s' % (remote, sha1))
+                  else:
+                    td.pre(sha1)
 
-                if fhtmlp:
-                    fhtmlp.section(refs)
-                    with fhtmlp.table(css='hoverTable') as table:
-                        for sha1, author, committer, subject in logs:
-                            if not pattern.match('e,email', committer):
-                                continue
+                if sha1 in details:
+                  commit = details[sha1]
+                else:
+                  commit = CommitInfo(sha1, 'Unknown', 'Unknown', '')
 
-                            hauthor = fhtml.item(author, 'mailto:%s' % author)
-                            hcommitter = fhtml.item(
-                                committer, 'mailto:%s' % committer)
-                            if not remote:
-                                table.row(sha1, hauthor, hcommitter, subject)
-                                continue
+                with tr.wtd() as td:
+                  td.a(commit.author, href='mailto:%s' % commit.author)
 
-                            if gitiles and name:
-                                sha1a = fhtmlp.item(
-                                    sha1[:20], '%s#q,%s' % (remote, sha1))
-                                sha1b = fhtmlp.item(
-                                    sha1[20:], '%s/plugins/gitiles/%s/+/%s^!'
-                                    % (remote, name, sha1))
+                if commit.info:
+                  tr.td(
+                    commit.title, data_toggle='tooltip', data_html='true',
+                    title="%s" % tr.escape_str(commit.info))
+                else:
+                  tr.td(commit.title, clazz='align-middle')
 
-                                table.row(
-                                    fhtmlp.item((sha1a, sha1b), tag='pre'),
-                                    hauthor, hcommitter, subject)
-                            else:
-                                link = fhtmlp.item(
-                                    sha1, '%s#q,%s' % (remote, sha1),
-                                    tag='pre')
-                                table.row(link, hauthor, hcommitter, subject)
+  @staticmethod
+  def generate_report(  # pylint: disable=R0915
+      args, project, name, root, output, format,  # pylint: disable=W0622
+      patterns, remote=None, gitiles=True, results=None):
+    def _secure_sha(gitp, refs):
+      ret, sha1 = gitp.rev_parse(refs)
+      if ret == 0:
+        return sha1
+      else:
+        ret, sha1 = gitp.rev_parse('%s/%s' % (project.remote, refs))
+        if ret == 0:
+          return sha1
+        else:
+          return ''
 
-        if ftextp:
-            ftextp.close()
-        if fhtmlp:
-            fhtmlp.close()
-        if ftext:
-            ftext.close()
-        if fhtml:
-            fhtml.close()
+    EXTENSIONS = {'txt': '.txt', 'html': '.html', 'all': ''}
+    if format not in EXTENSIONS:
+      print('Error: Unknown format to generate ....')
+      return None
 
-        return logs
+    num = 0
+    pattern = GitDiffSubcmd.build_pattern(patterns)
 
-    @staticmethod
-    def _immediate(path, text, clean=False):
-        filename = os.path.join(path, GitDiffSubcmd.IMMEDIATE_FILE)
-        if clean and os.path.exists(filename):
-            os.unlink(filename)
+    brefs = list()
+    if len(args) < 2:
+      if len(args) == 0:
+        print('No SHA-1 provided, use HEAD by default')
 
-        if text:
-            with open(filename, 'wb') as fp:
-                fp.write(text)
+      erefs = _secure_sha(project, args[0] if args else 'HEAD')
+      ret, head = project.rev_list('--max-parents=0', erefs)
+      if ret == 0:
+        brefs.extend(head.split('\n'))
+    else:
+      erefs = _secure_sha(project, args[1])
+      brefs.append(_secure_sha(project, args[0]))
+      # if two sha-1s are equaling, return
+      if erefs == brefs[-1]:
+        if results:
+          results.put(name, 0)
+
+        return
+
+    if not os.path.exists(output):
+      os.makedirs(output)
+
+    with FormattedFile.open(
+        os.path.join(output, 'index%s' % EXTENSIONS[format]), format) \
+        as outfile:
+
+      with outfile.head() as head:
+        head.meta(charset='utf-8')
+        head.title(name)
+
+        head.comment(' Boot strap core CSS ')
+        head.link(
+          href=GitDiffSubcmd.deploy(
+            'asserts/css/bootstrap.min.css', root, output),
+          rel='stylesheet')
+
+      with outfile.body() as bd:
+        with bd.nav(clazz="nav navbar-dark bg-dark") as nav:
+          with nav.wbutton(clazz="navbar-toggler", type="button") as bnav:
+            bnav.span('', clazz="navbar-toggler-icon")
+
+        bd.p()
+        with bd.div(clazz='card w-75') as bdiv:
+          with bdiv.div(clazz='card-block') as block:
+            with block.table(clazz='table') as btb:
+              with btb.tr() as tr:
+                tr.td("Start Refs")
+
+                title = ''
+                for ref in brefs:
+                  title += ref
+                  # avaiable in 1.7.10
+                  ret, tags = project.tag('--points-at', ref)
+                  if ret == 0 and tags.strip():
+                    title += ' (%s)' % (', '.join(tags.split('\n')))
+
+                tr.td(title)
+
+              with btb.tr() as tr:
+                tr.td('End Refs')
+
+                title = erefs
+                ret, tags = project.tag('--points-at', erefs)
+                if ret == 0 and tags.strip():
+                  title += ' (%s)' % (', '.join(tags.split('\n')))
+
+                tr.td(title)
+
+        bd.p()
+        with bd.div(id='accordion') as acc:
+          details = GitDiffSubcmd.get_commits_detail(project, ref, erefs)
+          num = len(details)
+
+          index = 1
+          # full log
+          for ref in brefs:
+            logs = GitDiffSubcmd.get_commits(project, ref, erefs)
+            if logs:
+              GitDiffSubcmd.update_table(
+                acc, details, logs, index, '%s..%s' % (ref, erefs),
+                remote, name, gitiles)
+              index += 1
+
+          # log with no merge
+          for ref in brefs:
+            logs = GitDiffSubcmd.get_commits(
+              project, ref, erefs, '--no-merges')
+            if logs:
+              GitDiffSubcmd.update_table(
+                acc, details, logs, index, '%s..%s (No merges)' % (ref, erefs),
+                remote, name, gitiles)
+              index += 1
+
+          if patterns:
+            # full log with pattern
+            for ref in brefs:
+              logs = GitDiffSubcmd.get_commits(project, ref, erefs)
+
+              filtered = list()
+              for li in logs:
+                if pattern.match('e,email', li[1]):
+                  filtered.append(li)
+
+              if filtered:
+                GitDiffSubcmd.update_table(
+                  acc, details, filtered, index, '%s..%s' % (ref, erefs),
+                  remote, name, gitiles)
+                index += 1
+
+            # log with pattern and no merge
+            for ref in brefs:
+              logs = GitDiffSubcmd.get_commits(
+                project, ref, erefs, '--no-merges')
+
+              filtered = list()
+              for li in logs:
+                if pattern.match('e,email', li[1]):
+                    filtered.append(li)
+
+                if filtered:
+                  GitDiffSubcmd.update_table(
+                    acc, details, filtered, index,
+                    '%s..%s (No merges)' % (ref, erefs),
+                    remote, name, gitiles)
+                index += 1
+
+        bd.script(
+          "window.jQuery || document.write('<script src=\"%s\">"
+          "<\/script>')" % GitDiffSubcmd.deploy(
+            'asserts/js/vendor/jquery-slim.min.js', root, output),
+          _escape=False)
+        # write an empty string to keep <script></script> to make js working
+        bd.script(
+          '',
+          src=GitDiffSubcmd.deploy(
+            'asserts/js/bootstrap.min.js', root, output))
+
+    if results:
+      results.put(name, num)
+
+    return num

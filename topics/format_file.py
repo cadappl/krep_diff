@@ -1,189 +1,458 @@
 
-# pylint: disable=W0622
-class _Writer(object):
-    def __init__(self, writer, format):
-        self.writer = writer
-        self.format = format
-
-    @staticmethod
-    def css(css, name='class'):
-        if css:
-            if name:
-                return ' %s="%s"' % (name, css)
-            else:
-                return '%s' % css
-        else:
-            return ''
-
-    def write(self, *args, **kws):
-        format = kws.get('format')
-        if format is None or format == self.format:
-            for arg in args:
-                self.writer.write(arg.encode('utf-8'))
+import os
 
 
-class FormattedItem(object):
-    def __init__(
-            self, text, link=None, tag=None, format=None, id=None, css=None):
-        self.text = text
-        self.link = link
-        self.id = id
-        self.css = css
-        self.tag = tag
-        self.format = format
+def _dict_merge(ret, dictb):
+  for key, value in dictb.items():
+    if key not in ret:
+      ret[key] = value
 
-    def __str__(self):
-        if self.format == FormattedFile.TEXT:
-            text = self.text
-        else:
-            if isinstance(self.text, (list, tuple)):
-                text = ''
-                for item in self.text:
-                    if isinstance(item, FormattedItem):
-                        text += str(item)
-                    else:
-                        text += item
-            else:
-                text = self.text
-
-            if self.tag:
-                text = '<%s>%s</%s>' % (self.tag, text, self.tag)
-            elif self.link:
-                text = '<a%s%s%s>%s</a>' % (
-                    _Writer.css(self.css),
-                    _Writer.css(self.id, 'id'),
-                    _Writer.css(self.link, 'href'),
-                    text)
-
-        return text
+  return ret
 
 
-class FormatDiv(_Writer):
-    def __init__(self, writer, format, css=None):
-        _Writer.__init__(self, writer, format)
-        self.css = css
+class _FileBundle(object):
+  FILE_HTML = 'html'
+  FILE_TEXT = 'txt'
 
-    def __enter__(self):
-        self.write(
-            '<div%s>\n' % FormatDiv.css(self.css),
-            format=FormattedFile.HTML)
+  def __init__(self, bundles):
+    self.fbundles = dict()
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.write('</div>\n', format=FormattedFile.HTML)
+    for key, filename in bundles.items():
+      self.fbundles[key] = open(filename, 'w')
 
+  def close(self):
+    for _, bundle in self.fbundles.items():
+      bundle.close()
 
-class FormatTable(_Writer):
-    class FormatRow(_Writer):
-        def __init__(self, writer, format, column=None):
-            _Writer.__init__(self, writer, format)
-            self.column = column
+    self.fbundles.clear()
 
-        def row(self, *args, **kws):
-            def _text(items):
-                if isinstance(items, (list, tuple)):
-                    ret = ''
-                    for item in items:
-                        ret += _text(item)
+  def write_html(self, html):
+    bundle = self.fbundles.get(_FileBundle.FILE_HTML)
+    if bundle:
+      bundle.write(html)
 
-                    return ret
-                else:
-                    return str(items)
-
-            self.write(
-                '<tr%s>\n' % FormatTable.css(kws.get('tr_css')),
-                format=FormattedFile.HTML)
-
-            td_csses = kws.get('td_csses')
-            for k, arg in enumerate(args):
-                self.write(
-                    '<td%s>' % FormatTable.css(td_csses and td_csses[k]) +
-                    _text(arg) + '</td>\n', format=FormattedFile.HTML)
-                if self.column and len(self.column) > k and self.column[k]:
-                    fmt = '%%-%ds' % (self.column[k] + 2)
-                    self.write(fmt % _text(arg), format=FormattedFile.TEXT)
-                else:
-                    self.write(_text(arg), format=FormattedFile.TEXT)
-
-            self.write('</tr>', format=FormattedFile.HTML)
-            self.write('\n')
-
-    def __init__(self, writer, format, column=None, css=None):
-        _Writer.__init__(self, writer, format)
-        self.css = css
-        self.column = column
-
-    def __enter__(self):
-        self.write(
-            '<table%s>\n' % FormatTable.css(self.css),
-            format=FormattedFile.HTML)
-        return FormatTable.FormatRow(self.writer, self.format, self.column)
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.write('</table>\n', format=FormattedFile.HTML)
+  def write_text(self, text):
+    bundle = self.fbundles.get(_FileBundle.FILE_TEXT)
+    if bundle:
+      bundle.write(text)
 
 
-class FileWithFormat(_Writer):
-    def __init__(self, name, title, format, css=None):
-        self.file = open(name, 'wb')
-        _Writer.__init__(self, self.file, format)
+class _Element(object):  # pylint: disable=R0902 
+  PHRASE_INIT = 0
+  PHRASE_STARTED = 1
+  PHRASE_REFRESH = 2
+  PHRASE_COMPLETE = 3
 
-        self.write(
-            '<html>\n' +
-            '  <title>' + title + '</title>\n',
-            format=FormattedFile.HTML)
-        self.write(
-            '%s<body>\n' % FileWithFormat.css(css, name=''),
-            format=FormattedFile.HTML)
+  wrap = True
 
-        self.write(title + '\n', format=FormattedFile.TEXT)
-        self.write('=' * (len(title) + 1) + '\n', format=FormattedFile.TEXT)
+  def __init__(
+      self, bundle, name=None, htmltext=True, action='start',
+      parent=None, *args, **kws):
 
-    def close(self):
-        self.write('</body>\n</html>', format=FormattedFile.HTML)
-        self.file.close()
+    self.name = name
+    self.both = htmltext
+    self.bundle = bundle
+    self.args = list()
+    self.kws = dict()
+    self.parent = parent
+    self.update_phrase = _Element.PHRASE_INIT
+    self.has_args = len(args)
+    self.has_child = False
+    self.has_refreshed = False
+    self.start_tag = None
+    self.end_tag = None
+    self._wrap = kws.get('_wrap', None)
+    self.escape = kws.get('_escape', True)
+    self.indent = 0
+    if self.parent:
+      # update parent container
+      self.parent.has_child = True
+      self.indent = self.parent.indent + 2
 
-    def section(self, title):
-        self.write('<h5>' + title + '</h5>\n', format=FormattedFile.HTML)
+    self.update(action, *args, **kws)
 
-        self.write('\n' + title + '\n', format=FormattedFile.TEXT)
-        self.write('-' * (len(title) + 1) + '\n', format=FormattedFile.TEXT)
+  def __enter__(self):
+    if self._wrap is not None:
+      if self._wrap != self.wrap:
+        self.update(action='refresh')
 
-    def div(self, css=None):
-        return FormatDiv(self.file, self.format, css)
+      self.set_wrap(self._wrap)
 
-    def table(self, column=None, css=None):
-        return FormatTable(self.file, self.format, column, css=css)
+    return self
 
-    def item(self, text, link=None, tag=None, id=None, css=None):
-        return FormattedItem(
-            text, link=link, tag=tag, format=self.format, id=id, css=css)
+  def __exit__(self, exc_type, exc_value, traceback):
+    if self._wrap is not None:
+      self.set_wrap(not self._wrap)
+
+    self.update(action='end')
+
+  @staticmethod
+  def escape_str(html):
+    esc = {
+      '"': '&quot;',
+      '&': '&amp;',
+      "'": '&apos;',
+      '<': '&lt;',
+      '>': '&gt;',
+    }
+
+    for char, val in esc.items():
+      html = html.replace(char, val)
+
+    return html
+
+  def _escape(self, html):
+    if self.escape:
+      html = _Element.escape_str(html)
+
+    return html
+
+  @staticmethod
+  def _secure_name(name):
+    if name.startswith('_'):
+        return None
+    else:
+        return name.replace('clazz', 'class').replace('_', '-')
+
+  def set_tag(self, start, end):
+    self.start_tag = start
+    self.end_tag = end
+
+  def set_wrap(self, wrap):
+    _Element.wrap = wrap
+
+  def update(self, action, *args, **kws):
+    _dict_merge(self.kws, kws)
+    self.args.extend(args)
+
+    if len(self.args) > 0:
+      self.has_args = True
+
+    if action in ('refresh', 'end'):
+      if self.parent:
+        self.parent.update(action='refresh')
+
+      elem = ''
+      if (action == 'end' or (action == 'refresh' and not self.has_refreshed)) \
+          and self.update_phrase == _Element.PHRASE_INIT:
+        if self.start_tag or self.name:
+          if not self.wrap:
+            elem += '<%s' % (self.start_tag or self.name)
+          else:
+            if self.indent != 0:
+                elem += '\n'
+            elem += '%s<%s' % (' ' * self.indent, self.start_tag or self.name)
+
+          for name in sorted(self.kws.keys()):
+            attr = _Element._secure_name(name)
+            if attr:
+                elem += ' %s="%s"' % (attr, self.kws[name])
+
+          self.kws = dict()
+          self.update_phrase = _Element.PHRASE_STARTED
+
+      if action == 'refresh' and not self.has_refreshed:
+        self.has_refreshed = True
+
+        # with start tag, don't close
+        if self.name and self.update_phrase < _Element.PHRASE_REFRESH:
+          elem += '>'
+
+        alem = ''
+        for arg in self.args:
+          alem += str(arg)
+
+        if self.both:
+          self.bundle.write_text(alem)
+
+        elem += self._escape(alem)
+        self.args = list()
+
+        self.update_phrase = _Element.PHRASE_REFRESH
+
+      if action == 'end':
+        ended = False
+        if not self.has_refreshed and self.name:
+          if self.has_args or self.has_child:
+            elem += '>'
+          else:
+            elem += '/>'
+            ended = True
+
+        alem = ''
+        for arg in self.args:
+          alem += str(arg)
+
+        if self.both:
+          self.bundle.write_text(alem)
+
+        elem += self._escape(alem)
+        if not ended and (self.end_tag or self.name):
+          if self.end_tag:
+            elem += '%s>' % self.end_tag
+          elif self.has_args:
+            elem += '</%s>' % self.name
+          # wrap might be updated before tag ended, treat the intrnal value
+          elif not ((self._wrap is None or self._wrap) and self.wrap):
+            elem += '</%s>' % self.name
+          else:
+            elem += '\n%s</%s>' % (' ' * self.indent, self.name)
+
+      if elem:
+        self.bundle.write_html(elem)
+
+  def write(self, *args, **kws):
+    self.update(action='deferred', *args, **kws)
 
 
-class FormattedFile(object):
-    TEXT = 'text'
-    HTML = 'html'
-    ALL = 'all'
+class _Table(_Element):
+  def __init__(self, bundle, **kws):
+    _Element.__init__(self, bundle, 'table', **kws)
 
-    def __init__(self, name, title, format, css=None):
-        self.name = name
-        self.file = None
-        self.title = title
-        self.format = format
-        self.css = css
+  class _Tr(_Element):
+    def __init__(self, bundle, **kws):
+      _Element.__init__(self, bundle, 'tr', **kws)
 
-    def __enter__(self):
-        self.file = FormattedFile.open(
-            self.name, self.title, self.format, css=self.css)
-        return self.file
+    def th(self, *args, **kws):
+      with _Th(self.bundle, self, *args, **kws):
+        pass
 
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.file:
-            self.file.close()
+    def wth(self, *args, **kws):
+      return _Th(self.bundle, self, *args, **kws)
 
-    @staticmethod
-    def open(name, title, format, css=None):
-        return FileWithFormat(name, title, format, css)
-# pylint: enable=W0622
+    def td(self, *args, **kws):
+      with _Td(self.bundle, self, *args, **kws):
+        pass
+
+    def wtd(self, *args, **kws):
+      return _Td(self.bundle, self, *args, **kws)
+
+  def tr(self, **kws):
+    return _Table._Tr(self.bundle, parent=self, **kws)
 
 
-TOPIC_ENTRY = 'FormattedFile,FormattedItem'
+class _Partical(_Element):
+  def __init__(self, bundle, name, htmltext=True, action='start',
+      parent=None, *args, **kws):
+    _Element.__init__(
+      self, bundle, name, htmltext, action, parent, *args, **kws)
+
+  class _Comment(_Element):
+    def __init__(self, bundle, parent, *args, **kws):
+      _Element.__init__(
+        self, bundle, '', False, 'start', parent, *args, **kws)
+      self.set_tag('!--', '--')
+
+  def comment(self, *args):
+    with _Partical._Comment(self.bundle, self, *args):
+      pass
+
+class _Mutliple(_Partical):
+  def __init__(self, bundle, name, htmltext=True, action='start',
+      parent=None, *args, **kws):
+    _Partical.__init__(self, bundle, name, htmltext, action, parent, *args, **kws)
+
+  class _A(_Element):
+    def __init__(self, bundle, parent=None, *args, **kws):
+      _Element.__init__(self, bundle, 'a', True, 'start', parent, *args, **kws)
+
+  def a(self, *args, **kws):
+    with _Mutliple._A(self.bundle, self, *args, **kws):
+      pass
+
+  def button(self, *args, **kws):
+    with _Button(self.bundle, self, *args, **kws):
+      pass
+
+  def wbutton(self, *args, **kws):
+    return _Button(self.bundle, self, *args, **kws)
+
+  def code(self, *args, **kws):
+    with _Code(self.bundle, parent=self, *args, **kws):
+      pass
+
+  def wcode(self, *args, **kws):
+    return _Code(self.bundle, parent=self, *args, **kws)
+
+  def div(self, **kws):
+    return _Div(self.bundle, parent=self, **kws)
+
+  def h2(self, *args, **kws):
+    with _H2(self.bundle, self, *args, **kws):
+      pass
+
+  def wh2(self, *args, **kws):
+    return _H2(self.bundle, self, *args, **kws)
+
+  def h5(self, *args, **kws):
+    with _H5(self.bundle, self, *args, **kws):
+      pass
+
+  def wh5(self, *args, **kws):
+    return _H5(self.bundle, self, *args, **kws)
+
+  def nav(self, *args, **kws):
+    return _Nav(self.bundle, parent=self, *args, **kws)
+
+  def p(self, *args, **kws):
+    with _P(self.bundle, self, *args, **kws):
+      pass
+
+  def wpre(self, *args, **kws):
+    return _Pre(self.bundle, self, *args, **kws)
+
+  def pre(self, *args, **kws):
+    with _Pre(self.bundle, self, *args, **kws):
+      pass
+
+  def span(self, *args, **kws):
+    with _Span(self.bundle, self, *args, **kws):
+      pass
+
+  def wspan(self, *args, **kws):
+    return _Span(self.bundle, self, *args, **kws)
+
+  def table(self, **kws):
+    return _Table(self.bundle, parent=self, **kws)
+
+
+class _Button(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(
+      self, bundle, 'button', True, 'start', parent, *args, **kws)
+
+
+class _Code(_Mutliple):
+  def __init__(self, bundle, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'code', *args, **kws)
+
+
+class _Div(_Mutliple):
+  def __init__(self, bundle, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'div', *args, **kws)
+
+
+class _H2(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'h2', True, 'start', parent, *args, **kws)
+
+
+class _H5(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'h5', True, 'start', parent, *args, **kws)
+
+
+class _Nav(_Mutliple):
+  def __init__(self, bundle, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'nav', *args, **kws)
+
+
+class _P(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'p', True, 'start', parent, *args, **kws)
+
+
+class _Pre(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'pre', True, 'start', parent, *args, **kws)
+
+
+class _Span(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(
+      self, bundle, 'span', True, 'start', parent, *args, **kws)
+
+
+class _Th(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'th', True, 'start', parent, *args, **kws)
+
+
+class _Td(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'td', True, 'start', parent, *args, **kws)
+
+
+class _Head(_Partical):
+  def __init__(self, bundle, **kws):
+    _Partical.__init__(self, bundle, 'head', **kws)
+
+  class _Title(_Element):
+    def __init__(self, bundle, parent, *args, **kws):
+      _Element.__init__(
+        self, bundle, 'title', True, 'start', parent, *args, **kws)
+
+  def title(self, *args):
+    with _Head._Title(self.bundle, self, *args):
+      pass
+
+  class _Meta(_Element):
+    def __init__(self, bundle, **kws):
+      _Element.__init__(self, bundle, 'meta', htmltext=False, **kws)
+
+  def meta(self, **kws):
+    with _Head._Meta(self.bundle, parent=self, **kws):
+      pass
+
+  class _Link(_Element):
+    def __init__(self, bundle, **kws):
+      _Element.__init__(self, bundle, 'link', **kws)
+
+  def link(self, **kws):
+    with _Head._Link(self.bundle, parent=self, **kws):
+      pass
+
+
+class _Body(_Mutliple):
+  def __init__(self, bundle, **kws):
+    _Mutliple.__init__(self, bundle, 'body', **kws)
+
+  class _Script(_Element):
+    def __init__(self, bundle, parent, *args, **kws):
+      _Element.__init__(
+        self, bundle, 'script', False, 'start', parent, *args, **kws)
+
+  def script(self, *args, **kws):
+    with _Body._Script(self.bundle, self, *args, **kws):
+      pass
+
+
+class FormattedFile(_Element):
+  def __init__(self, name, format):  # pylint: disable=W0622 
+    bundle = dict()
+
+    fname, _ = os.path.splitext(name)
+    format = format.lower()
+    if format in ('text', 'all'):
+      if format == 'all':
+        name = '%s.txt' % fname
+
+      bundle[_FileBundle.FILE_TEXT] = name
+
+    if format in ('htm', 'html', 'all'):
+      if format == 'all':
+        name = '%s.html' % fname
+
+      bundle[_FileBundle.FILE_HTML] = name
+
+    _Element.__init__(self, _FileBundle(bundle), 'html')
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.close()
+
+  def close(self):
+    self.update(action='end')
+    self.bundle.close()
+
+  def head(self):
+    return _Head(self.bundle, parent=self)
+
+  def body(self):
+    return _Body(self.bundle, parent=self)
+
+  @staticmethod
+  def open(name, format):  # pylint: disable=W0622 
+    return FormattedFile(name, format)
+
+
+TOPIC_ENTRY = 'FormattedFile'
