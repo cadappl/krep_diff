@@ -90,12 +90,12 @@ class _Element(object):  # pylint: disable=R0902
   def escape_str(html):
     esc = {
       '"': '&quot;',
-      '&': '&amp;',
       "'": '&apos;',
       '<': '&lt;',
       '>': '&gt;',
     }
 
+    html = html.replace('&', '&amp;')
     for char, val in esc.items():
       html = html.replace(char, val)
 
