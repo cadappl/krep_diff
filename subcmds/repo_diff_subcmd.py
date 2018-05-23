@@ -180,9 +180,9 @@ purposed formats."""
                       project = second[pname]
                       with table.tr() as tr:
                         with tr.wtd() as td:
+                          td.a(project.uri, href='%s/index.html' % project.uri)
                           td.span(
                             results.get(project.uri), clazz='badge badge-info')
-                          td.a(project.uri, href='%s/index.html' % project.uri)
 
           if noupdate_projects:
             index += 1
