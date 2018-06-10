@@ -410,7 +410,8 @@ class _Body(_Mutliple):
   class _Script(_Element):
     def __init__(self, bundle, parent, *args, **kws):
       _Element.__init__(
-        self, bundle, 'script', False, 'start', parent, *args, **kws)
+        self, bundle, 'script', False, 'start', parent,
+        *args if len(args) > 0 else '', **kws)
 
   def script(self, *args, **kws):
     with _Body._Script(self.bundle, self, *args, **kws):
