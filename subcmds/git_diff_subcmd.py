@@ -130,7 +130,9 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if ret == 0:
       vals = list()
       for sha1 in sha1s.split('\n'):
-        vals.append(sha1.strip('"'))
+        sha1 = sha1.strip('"')
+        if sha1:
+            vals.append(sha1)
 
       return vals
     else:
