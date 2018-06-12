@@ -120,7 +120,13 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
   @staticmethod
   def get_commits(project, sref, eref, *options):
-    ret, sha1s = project.log(*options, '--pretty=%H', '%s..%s' % (sref, eref))
+    args = list()
+    if len(options) > 0:
+        args.extend(options)
+    args.append('--pretty=%H')
+    args.append('%s..%s' % (sref, eref))
+
+    ret, sha1s = project.log(*args)
     if ret == 0:
       vals = list()
       for sha1 in sha1s.split('\n'):
