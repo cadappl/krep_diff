@@ -75,6 +75,8 @@ purposed formats."""
 
     def generate_report(
         project, remote, options, origins, references, pattern, results):
+      print("Generating for %s ..." % origins[project])
+
       argp = list()
       if project in references:
         argp.append(references[project].revision)
