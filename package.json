@@ -1,0 +1,16 @@
+{
+  "name": "krep-git-diff",
+  "title": "krep-git-diff",
+  "description": "Report generator for Git logs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cadappl/krep_plugin_git_diff.git"
+  },
+  "license": "APLv2",
+  "dependencies": {
+    "bootstrap": "v4.0.0"
+  },
+  "devDependencies": {
+    "bootstrap": "v4.0.0"
+  }
+}
