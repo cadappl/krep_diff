@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/python-2.7%2C%203.6-blue.svg)
+
 Git log tool for git and [git-repo] project
 ============================================
 
