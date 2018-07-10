@@ -357,12 +357,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 if pattern.match('e,email', li[1]):
                     filtered.append(li)
 
-                if filtered:
-                  GitDiffSubcmd.update_table(
-                    acc, details, filtered, index,
-                    '%s..%s (No merges)' % (ref, erefs),
-                    remote, name, gitiles)
-                index += 1
+              if filtered:
+                GitDiffSubcmd.update_table(
+                  acc, details, filtered, index,
+                  '%s..%s (No merges)' % (ref, erefs),
+                  remote, name, gitiles)
+              index += 1
 
         bd.script(
           "window.jQuery || document.write('<script src=\"%s\">"
