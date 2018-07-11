@@ -266,10 +266,25 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if not os.path.exists(output):
       os.makedirs(output)
 
-    with FormattedFile.open(
-        os.path.join(output, 'index%s' % EXTENSIONS[format]), format) \
-        as outfile:
+    GitDiffSubcmd._generate_html(
+      brefs, erefs, args, project, name, root, output,
+      os.path.join(output, 'index.html'),
+      pattern, remote, gitiles, results, full=True)
 
+
+    GitDiffSubcmd._generate_html(
+      brefs, erefs, args, project, name, root, output,
+      os.path.join(output, 'filter.html'),
+      pattern, remote, gitiles)
+
+
+  @staticmethod
+  def _generate_html(  # pylint: disable=R0915
+      brefs, erefs, args, project, name, root, output, filename,  # pylint: disable=W0622
+      pattern, remote=None, gitiles=True, results=None, full=False):
+
+    num = 0
+    with FormattedFile.open(filename, 'html') as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
         head.title(name)
@@ -323,23 +338,25 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
           index = 1
           # full log
-          for ref in brefs:
-            logs = GitDiffSubcmd.get_commits(project, ref, erefs)
-            if logs:
-              GitDiffSubcmd.update_table(
-                acc, details, logs, index, '%s..%s' % (ref, erefs),
-                remote, name, gitiles)
-              index += 1
+          if full:
+            for ref in brefs:
+              logs = GitDiffSubcmd.get_commits(project, ref, erefs)
+              if logs:
+                GitDiffSubcmd.update_table(
+                  acc, details, logs, index, '%s..%s' % (ref, erefs),
+                  remote, name, gitiles)
+                index += 1
 
-          # log with no merge
-          for ref in brefs:
-            logs = GitDiffSubcmd.get_commits(
-              project, ref, erefs, '--no-merges')
-            if logs:
-              GitDiffSubcmd.update_table(
-                acc, details, logs, index, '%s..%s (No merges)' % (ref, erefs),
-                remote, name, gitiles)
-              index += 1
+            # log with no merge
+            for ref in brefs:
+              logs = GitDiffSubcmd.get_commits(
+                project, ref, erefs, '--no-merges')
+              if logs:
+                GitDiffSubcmd.update_table(
+                  acc, details, logs, index,
+                  '%s..%s (No merges)' % (ref, erefs),
+                  remote, name, gitiles)
+                index += 1
 
           if pattern:
             # full log with pattern
@@ -362,7 +379,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             for ref in brefs:
               logs = GitDiffSubcmd.get_commits(
                 project, ref, erefs, '--no-merges')
-
               filtered = list()
               for li in logs:
                 ci = GitDiffSubcmd.get_commit_ci(project, details, li)
@@ -374,7 +390,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   acc, details, filtered, index,
                   '%s..%s (No merges)' % (ref, erefs),
                   remote, name, gitiles)
-              index += 1
+                index += 1
 
         bd.script(
           "window.jQuery || document.write('<script src=\"%s\">"
