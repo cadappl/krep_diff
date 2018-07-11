@@ -51,6 +51,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
     options = optparse.add_option_group('Format options')
     options.add_option(
+      '--generate-no-merge',
+      dest='generate_no_merge', action='store_true',
+      help='Generate the table without merge')
+
+    options = optparse.add_option_group('Format options')
+    options.add_option(
       '--gitiles',
       dest='gitiles', action='store_true',
       help='Enable gitiles links within the SHA-1')
@@ -85,7 +91,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     GitDiffSubcmd.generate_report(
       args, project,
       name or '', options.output, options.output, format,
-      pattern, remote, options.gitiles)
+      pattern, remote, options.gitiles, options.gen_no_merge)
 
   @staticmethod
   @synchronized
@@ -226,7 +232,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   @staticmethod
   def generate_report(  # pylint: disable=R0915
       args, project, name, root, output, format,  # pylint: disable=W0622
-      pattern, remote=None, gitiles=True, results=None):
+      pattern, remote=None, gitiles=True, gen_no_merge=False, results=None):
     def _secure_sha(gitp, refs):
       ret, sha1 = gitp.rev_parse(refs)
       if ret == 0:
@@ -269,19 +275,20 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'index.html'),
-      pattern, remote, gitiles, results, full=True)
+      pattern, remote, gitiles, gen_no_merge, results, full=True)
 
 
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'filter.html'),
-      pattern, remote, gitiles)
+      pattern, remote, gitiles, gen_no_merge)
 
 
   @staticmethod
   def _generate_html(  # pylint: disable=R0915
       brefs, erefs, args, project, name, root, output, filename,  # pylint: disable=W0622
-      pattern, remote=None, gitiles=True, results=None, full=False):
+      pattern, remote=None, gitiles=True, gen_no_merge=False,
+      results=None, full=False):
 
     num = 0
     with FormattedFile.open(filename, 'html') as outfile:
@@ -348,15 +355,16 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 index += 1
 
             # log with no merge
-            for ref in brefs:
-              logs = GitDiffSubcmd.get_commits(
-                project, ref, erefs, '--no-merges')
-              if logs:
-                GitDiffSubcmd.update_table(
-                  acc, details, logs, index,
-                  '%s..%s (No merges)' % (ref, erefs),
-                  remote, name, gitiles)
-                index += 1
+            if gen_no_merge:
+              for ref in brefs:
+                logs = GitDiffSubcmd.get_commits(
+                  project, ref, erefs, '--no-merges')
+                if logs:
+                  GitDiffSubcmd.update_table(
+                    acc, details, logs, index,
+                    '%s..%s (No merges)' % (ref, erefs),
+                    remote, name, gitiles)
+                  index += 1
 
           if pattern:
             # full log with pattern
@@ -376,21 +384,23 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 index += 1
 
             # log with pattern and no merge
-            for ref in brefs:
-              logs = GitDiffSubcmd.get_commits(
-                project, ref, erefs, '--no-merges')
-              filtered = list()
-              for li in logs:
-                ci = GitDiffSubcmd.get_commit_ci(project, details, li)
-                if pattern.match('e,email', ci.author):
-                  filtered.append(li)
+            if gen_no_merge:
+              for ref in brefs:
+                logs = GitDiffSubcmd.get_commits(
+                  project, ref, erefs, '--no-merges')
 
-              if filtered:
-                GitDiffSubcmd.update_table(
-                  acc, details, filtered, index,
-                  '%s..%s (No merges)' % (ref, erefs),
-                  remote, name, gitiles)
-                index += 1
+                filtered = list()
+                for li in logs:
+                  ci = GitDiffSubcmd.get_commit_ci(project, details, li)
+                  if pattern.match('e,email', ci.author):
+                    filtered.append(li)
+
+                if filtered:
+                  GitDiffSubcmd.update_table(
+                    acc, details, filtered, index,
+                    '%s..%s (No merges)' % (ref, erefs),
+                    remote, name, gitiles)
+                  index += 1
 
         bd.script(
           "window.jQuery || document.write('<script src=\"%s\">"

@@ -86,7 +86,7 @@ purposed formats."""
         argp, origins[project],
         project, options.output,
         os.path.join(options.output, project), options.format,
-        pattern, remote, options.gitiles, results)
+        pattern, remote, options.gitiles, options.gen_no_merge, results)
 
     self.run_with_thread(
       options.job, second, generate_report, options.remote, options,
