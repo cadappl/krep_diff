@@ -30,7 +30,7 @@ purposed formats."""
       help='Set to work with a git-repo mirror project')
 
   def execute(self, options, *args, **kws):
-    pattern = GitDiffSubcmd.build_pattern(options.pattern)
+    pattern = RepoDiffSubcmd.get_patterns(options)  # pylint: disable=E1101
     if not os.path.exists(options.output):
       os.makedirs(options.output)
 

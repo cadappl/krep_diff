@@ -81,26 +81,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
         remote += ':%d' % ulp.port
 
     format = options.format and options.format.lower()  # pylint: disable=W0622
+    pattern = GitDiffSubcmd.get_patterns(options)  # pylint: disable=E1101
     GitDiffSubcmd.generate_report(
       args, project,
       name or '', options.output, options.output, format,
-      options.pattern, remote, options.gitiles)
-
-  @staticmethod
-  def build_pattern(patterns):
-    if patterns:
-      pats = list()
-      for pat in patterns:
-        if pat.find(':') > 0:
-          pats.append(pat)
-        else:
-          pats.append('email:%s' % pat)
-
-      pattern = Pattern(pats)
-    else:
-      pattern = Pattern()
-
-    return pattern
+      pattern, remote, options.gitiles)
 
   @staticmethod
   @synchronized
@@ -218,7 +203,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   @staticmethod
   def generate_report(  # pylint: disable=R0915
       args, project, name, root, output, format,  # pylint: disable=W0622
-      patterns, remote=None, gitiles=True, results=None):
+      pattern, remote=None, gitiles=True, results=None):
     def _secure_sha(gitp, refs):
       ret, sha1 = gitp.rev_parse(refs)
       if ret == 0:
@@ -236,8 +221,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       return None
 
     num = 0
-    pattern = GitDiffSubcmd.build_pattern(patterns)
-
     brefs = list()
     if len(args) < 2:
       if len(args) == 0:
@@ -331,7 +314,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 remote, name, gitiles)
               index += 1
 
-          if patterns:
+          if pattern:
             # full log with pattern
             for ref in brefs:
               logs = GitDiffSubcmd.get_commits(project, ref, erefs)
