@@ -122,6 +122,10 @@ purposed formats."""
           href=GitDiffSubcmd.deploy(
             'asserts/css/bootstrap.min.css', options.output, options.output),
           rel='stylesheet')
+        head.link(
+          href=GitDiffSubcmd.deploy(
+            'asserts/css/krep-diff.css', options.output, options.output),
+          rel='stylesheet')
 
       with outfile.body() as bd:
         with bd.nav(clazz="nav navbar-dark bg-dark") as nav:
