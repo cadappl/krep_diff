@@ -124,20 +124,43 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       return list()
 
   @staticmethod
+  def get_commit_detail(project, sha1):
+    vals = list()
+    wrong = '!!Wrong decoded!!'
+
+    for item in ('%ae', '%s'):
+      try:
+        _, val = project.show(
+          '--no-patch', '--oneline', '--format=%s' % item, sha1)
+      except UnicodeDecodeError:
+        val = wrong
+
+      vals.append(val)
+
+    try:
+      _, info = project.show('--name-only', sha1)
+    except UnicodeDecodeError:
+      info = wrong
+
+    ci = CommitInfo(sha1, vals[0], vals[1], info)
+
+    return ci
+
+  @staticmethod
   def get_commits_detail(project, sref, eref, *options):
     details = dict()
     sha1s = GitDiffSubcmd.get_commits(project, sref, eref, *options)
     for sha1 in sha1s:
-      vals = list()
-      for item in ('%ae', '%s'):
-        _, val = project.show(
-          '--no-patch', '--oneline', '--format=%s' % item, sha1)
-        vals.append(val)
-
-      ret, info = project.show('--name-only', sha1)
-      details[sha1] = CommitInfo(sha1, vals[0], vals[1], info)
+      details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
 
     return details
+
+  @staticmethod
+  def get_commit_ci(project, details, sha1):
+    if sha1 not in details:
+      details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
+
+    return details[sha1]
 
   @staticmethod
   def update_table(
@@ -325,7 +348,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
               filtered = list()
               for li in logs:
-                if pattern.match('e,email', li[1]):
+                ci = GitDiffSubcmd.get_commit_ci(project, details, li)
+                if pattern.match('e,email', ci.author):
                   filtered.append(li)
 
               if filtered:
@@ -341,8 +365,9 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
               filtered = list()
               for li in logs:
-                if pattern.match('e,email', li[1]):
-                    filtered.append(li)
+                ci = GitDiffSubcmd.get_commit_ci(project, details, li)
+                if pattern.match('e,email', ci.author):
+                  filtered.append(li)
 
               if filtered:
                 GitDiffSubcmd.update_table(
