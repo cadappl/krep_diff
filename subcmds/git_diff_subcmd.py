@@ -16,6 +16,21 @@ from topics import FormattedFile, GitProject, Pattern, SubCommand
 CommitInfo = namedtuple('CommitInfo', 'sha1,author,title,info')
 
 
+class Results:
+  def __init__(self):
+    self.changes = dict()
+
+  @synchronized
+  def put(self, name, value):
+    self.changes[name] = value
+
+  def get(self, name=None):
+    if name:
+      return self.changes[name]
+    else:
+      return self.changes
+
+
 class GitDiffSubcmd(SubCommand):
   COMMAND = 'git-diff'
 

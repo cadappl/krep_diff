@@ -2,7 +2,7 @@
 import os
 
 from synchronize import synchronized
-from git_diff_subcmd import GitDiffSubcmd
+from git_diff_subcmd import Results, GitDiffSubcmd
 from krep_subcmds.repo_subcmd import RepoSubcmd
 from krep_subcmds.repo_mirror_subcmd import RepoMirrorSubcmd
 from topics import FormattedFile, SubCommandWithThread
@@ -56,20 +56,6 @@ purposed formats."""
         second = make_projects(manifestf(options, args[0]))
       else:
         second = make_projects(manifestf(options))
-
-    class Results:
-      def __init__(self):
-        self.changes = dict()
-
-      @synchronized
-      def put(self, name, value):
-        self.changes[name] = value
-
-      def get(self, name=None):
-        if name:
-          return self.changes[name]
-        else:
-          return self.changes
 
     results = Results()
 
