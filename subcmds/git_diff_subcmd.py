@@ -24,9 +24,13 @@ class Results:
   def put(self, name, value):
     self.changes[name] = value
 
-  def get(self, name=None):
+  def get(self, name=None, item=None):
     if name:
-      return self.changes[name]
+      if item:
+        alt = {'full': 0, 'no_merge': 1, 'filter': 2, 'filter_no_merge': 3}
+        return self.changes[name][alt[item]]
+      else:
+        return self.changes[name]
     else:
       return self.changes
 
@@ -305,7 +309,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       pattern, remote=None, gitiles=True, gen_no_merge=False,
       results=None, full=False):
 
-    num = 0
+    fulla, fullm, filtera, filterm = 0, 0, 0, 0
     with FormattedFile.open(filename, 'html') as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
@@ -356,7 +360,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
         bd.p()
         with bd.div(id='accordion') as acc:
           details = GitDiffSubcmd.get_commits_detail(project, ref, erefs)
-          num = len(details)
 
           index = 1
           # full log
@@ -364,6 +367,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             for ref in brefs:
               logs = GitDiffSubcmd.get_commits(project, ref, erefs)
               if logs:
+                fulla += len(logs)
                 GitDiffSubcmd.update_table(
                   acc, details, logs, index, '%s..%s' % (ref, erefs),
                   remote, name, gitiles)
@@ -375,6 +379,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 logs = GitDiffSubcmd.get_commits(
                   project, ref, erefs, '--no-merges')
                 if logs:
+                  fullm += len(logs)
                   GitDiffSubcmd.update_table(
                     acc, details, logs, index,
                     '%s..%s (No merges)' % (ref, erefs),
@@ -383,6 +388,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
           if pattern:
             # full log with pattern
+            bd.pre('Filtered Results')
             for ref in brefs:
               logs = GitDiffSubcmd.get_commits(project, ref, erefs)
 
@@ -393,6 +399,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   filtered.append(li)
 
               if filtered:
+                filtera += len(filtered)
                 GitDiffSubcmd.update_table(
                   acc, details, filtered, index, '%s..%s' % (ref, erefs),
                   remote, name, gitiles)
@@ -411,6 +418,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                     filtered.append(li)
 
                 if filtered:
+                  filterm += len(filtered)
                   GitDiffSubcmd.update_table(
                     acc, details, filtered, index,
                     '%s..%s (No merges)' % (ref, erefs),
@@ -429,6 +437,5 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             'asserts/js/bootstrap.min.js', root, output))
 
     if results:
-      results.put(name, num)
+      results.put(name, [fulla, fullm, filtera, filterm])
 
-    return num

@@ -86,7 +86,7 @@ purposed formats."""
     projects = results.get()
     for project in projects:
       if project in first:
-        if results.get(project) == 0:
+        if results.get(project, 'full') == 0:
           noupdate_projects.append(project)
         else:
           modified_projects.append(project)
@@ -146,7 +146,8 @@ purposed formats."""
                         with tr.wtd() as td:
                           td.a(project.uri, href='%s/index.html' % project.uri)
                           td.span(
-                            results.get(project.uri), clazz='badge badge-info')
+                            results.get(project.uri, 'full'),
+                            clazz='badge badge-info')
 
           if modified_projects:
             index += 1
@@ -174,7 +175,8 @@ purposed formats."""
                         with tr.wtd() as td:
                           td.a(project.uri, href='%s/index.html' % project.uri)
                           td.span(
-                            results.get(project.uri), clazz='badge badge-info')
+                            results.get(project.uri, 'full'),
+                            clazz='badge badge-info')
 
           if noupdate_projects:
             index += 1
