@@ -51,11 +51,11 @@ purposed formats."""
       first = make_projects(manifestf(options, args[0]))
       second = make_projects(manifestf(options, args[1]))
     else:
-      first = None
+      first = dict()
       if len(args) > 0:
         second = make_projects(manifestf(options, args[0]))
       else:
-        second = make_projects(manifestf(options, mirror=options.mirror))
+        second = make_projects(manifestf(options))
 
     class Results:
       def __init__(self):
