@@ -37,13 +37,11 @@ class _FileBundle(object):
       bundle.write(text)
 
 
-class _Element(object):  # pylint: disable=R0902 
+class _Element(object):  # pylint: disable=R0902
   PHRASE_INIT = 0
   PHRASE_STARTED = 1
   PHRASE_REFRESH = 2
   PHRASE_COMPLETE = 3
-
-  wrap = True
 
   def __init__(
       self, bundle, name=None, htmltext=True, action='start',
@@ -61,29 +59,23 @@ class _Element(object):  # pylint: disable=R0902
     self.has_refreshed = False
     self.start_tag = None
     self.end_tag = None
-    self._wrap = kws.get('_wrap', None)
+    self.nowrap = kws.get('_nowrap', False)
     self.escape = kws.get('_escape', True)
     self.indent = 0
     if self.parent:
       # update parent container
       self.parent.has_child = True
       self.indent = self.parent.indent + 2
+      self.nowrap = self.nowrap or self.parent.nowrap
 
     self.update(action, *args, **kws)
 
   def __enter__(self):
-    if self._wrap is not None:
-      if self._wrap != self.wrap:
-        self.update(action='refresh')
-
-      self.set_wrap(self._wrap)
+    self.update(action='refresh')
 
     return self
 
   def __exit__(self, exc_type, exc_value, traceback):
-    if self._wrap is not None:
-      self.set_wrap(not self._wrap)
-
     self.update(action='end')
 
   @staticmethod
@@ -119,7 +111,7 @@ class _Element(object):  # pylint: disable=R0902
     self.end_tag = end
 
   def set_wrap(self, wrap):
-    _Element.wrap = wrap
+    self.nowrap = not wrap
 
   def update(self, action, *args, **kws):
     _dict_merge(self.kws, kws)
@@ -136,12 +128,12 @@ class _Element(object):  # pylint: disable=R0902
       if (action == 'end' or (action == 'refresh' and not self.has_refreshed)) \
           and self.update_phrase == _Element.PHRASE_INIT:
         if self.start_tag or self.name:
-          if not self.wrap:
-            elem += '<%s' % (self.start_tag or self.name)
-          else:
+          if not self.nowrap or (self.nowrap and not self.parent.nowrap):
             if self.indent != 0:
                 elem += '\n'
             elem += '%s<%s' % (' ' * self.indent, self.start_tag or self.name)
+          else:
+            elem += '<%s' % (self.start_tag or self.name)
 
           for name in sorted(self.kws.keys()):
             attr = _Element._secure_name(name)
@@ -193,7 +185,7 @@ class _Element(object):  # pylint: disable=R0902
           elif self.has_args:
             elem += '</%s>' % self.name
           # wrap might be updated before tag ended, treat the intrnal value
-          elif not ((self._wrap is None or self._wrap) and self.wrap):
+          elif self.nowrap:
             elem += '</%s>' % self.name
           else:
             elem += '\n%s</%s>' % (' ' * self.indent, self.name)
@@ -419,7 +411,7 @@ class _Body(_Mutliple):
 
 
 class FormattedFile(_Element):
-  def __init__(self, name, format):  # pylint: disable=W0622 
+  def __init__(self, name, format):  # pylint: disable=W0622
     bundle = dict()
 
     fname, _ = os.path.splitext(name)
@@ -452,7 +444,7 @@ class FormattedFile(_Element):
     return _Body(self.bundle, parent=self)
 
   @staticmethod
-  def open(name, format):  # pylint: disable=W0622 
+  def open(name, format):  # pylint: disable=W0622
     return FormattedFile(name, format)
 
 

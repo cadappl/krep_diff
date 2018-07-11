@@ -186,7 +186,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
               with table.tr() as tr:
                 with tr.wtd() as td:
                   if name:
-                      with td.wpre(_wrap=False) as pre:
+                      with td.wpre(_nowrap=True) as pre:
                         if gitiles:
                           pre.a(
                             sha1[:20],
