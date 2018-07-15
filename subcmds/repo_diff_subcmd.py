@@ -201,7 +201,7 @@ purposed formats."""
                     for pname in sorted(noupdate_projects):
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.a(pname)
+                          td.span(pname)
 
           if removed_projects:
             index += 1
@@ -226,7 +226,7 @@ purposed formats."""
                     for pname in sorted(removed_projects):
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.a(pname)
+                          td.span(pname)
 
         bd.script(
           "window.jQuery || document.write('<script src=\"%s\">"
