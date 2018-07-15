@@ -141,11 +141,12 @@ class _Element(object):  # pylint: disable=R0902
           self.kws = dict()
           self.update_phrase = _Element.PHRASE_STARTED
 
-      if action == 'refresh' and not self.has_refreshed:
+      if action == 'refresh':
         self.has_refreshed = True
 
         # with start tag, don't close
-        if self.name and self.update_phrase < _Element.PHRASE_REFRESH:
+        if self.name and (self.has_args or self.has_child) and \
+            self.update_phrase < _Element.PHRASE_REFRESH:
           elem += '>'
 
         alem = ''
@@ -160,9 +161,9 @@ class _Element(object):  # pylint: disable=R0902
 
         self.update_phrase = _Element.PHRASE_REFRESH
 
-      if action == 'end':
+      if action == 'end' and self.update_phrase < _Element.PHRASE_COMPLETE:
         ended = False
-        if not self.has_refreshed and self.name:
+        if self.name and not self.has_refreshed:
           if self.has_args or self.has_child:
             elem += '>'
           else:
@@ -172,6 +173,7 @@ class _Element(object):  # pylint: disable=R0902
         alem = ''
         for arg in self.args:
           alem += str(arg)
+        self.args = list()
 
         if self.both:
           self.bundle.write_text(alem)
@@ -188,11 +190,16 @@ class _Element(object):  # pylint: disable=R0902
           else:
             elem += '\n%s</%s>' % (' ' * self.indent, self.name)
 
+        self.update_phrase = _Element.PHRASE_COMPLETE
+
       if elem:
         self.bundle.write_html(elem)
 
+  def text(self, *args):
+    self.write(*args)
+
   def write(self, *args, **kws):
-    self.update(action='deferred', *args, **kws)
+    self.update('deferred', *args, **kws)
 
 
 class _Table(_Element):
