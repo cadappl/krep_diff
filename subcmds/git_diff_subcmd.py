@@ -13,7 +13,7 @@ except ImportError:
 from topics import FormattedFile, GitProject, Pattern, SubCommand
 
 
-CommitInfo = namedtuple('CommitInfo', 'sha1,author,title,info')
+CommitInfo = namedtuple('CommitInfo', 'sha1,author,committer,title,info')
 
 
 class Results:
@@ -153,7 +153,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     vals = list()
     wrong = '!!Wrong decoded!!'
 
-    for item in ('%ae', '%s'):
+    for item in ('%ae', '%ce', '%s'):
       try:
         _, val = project.show(
           '--no-patch', '--oneline', '--format=%s' % item, sha1)
@@ -167,9 +167,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     except UnicodeDecodeError:
       info = wrong
 
-    ci = CommitInfo(sha1, vals[0], vals[1], info)
-
-    return ci
+    return CommitInfo(sha1, vals[0], vals[1], vals[2], info)
 
   @staticmethod
   def get_commits_detail(project, sref, eref, *options):
@@ -409,7 +407,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
               filtered = list()
               for li in logs:
                 ci = GitDiffSubcmd.get_commit_ci(project, details, li)
-                if pattern.match('e,email', ci.author):
+                if pattern.match('e,email', ci.committer):
                   filtered.append(li)
 
               if filtered:
@@ -428,7 +426,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 filtered = list()
                 for li in logs:
                   ci = GitDiffSubcmd.get_commit_ci(project, details, li)
-                  if pattern.match('e,email', ci.author):
+                  if pattern.match('e,email', ci.committer):
                     filtered.append(li)
 
                 if filtered:
