@@ -303,17 +303,17 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if fresults.get(name, 'filter') == 0:
       os.unlink(filter_name)
 
-      # try cleaning the directory and parents
-      def file_num_in_dir(dname):
-        if os.path.exists(dname):
-          return len(filter(lambda d: d not in ['.', '..'], os.listdir(dname)))
-        else:
-          return -1
+    # try cleaning the directory and parents
+    def file_num_in_dir(dname):
+      if os.path.exists(dname):
+        return len(filter(lambda d: d not in ['.', '..'], os.listdir(dname)))
+      else:
+        return -1
 
-      dirname = os.path.dirname(filter_name)
-      while len(dirname) > 1 and file_num_in_dir(dirname) == 0:
-        os.rmdir(dirname)
-        dirname = os.path.dirname(dirname)
+    dirname = os.path.dirname(filter_name)
+    while len(dirname) > len(root) and file_num_in_dir(dirname) == 0:
+      os.rmdir(dirname)
+      dirname = os.path.dirname(dirname)
 
   @staticmethod
   def _generate_html(  # pylint: disable=R0915
