@@ -257,6 +257,14 @@ class _Mutliple(_Partical):
     with _Mutliple._A(self.bundle, self, *args, **kws):
       pass
 
+  class _Br(_Element):
+    def __init__(self, bundle, parent=None, *args, **kws):
+      _Element.__init__(self, bundle, 'br', True, 'start', parent, *args, **kws)
+
+  def br(self, *args, **kws):
+    with _Mutliple._Br(self.bundle, self, *args, **kws):
+      pass
+
   def button(self, *args, **kws):
     with _Button(self.bundle, self, *args, **kws):
       pass
