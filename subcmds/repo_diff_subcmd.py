@@ -86,10 +86,10 @@ purposed formats."""
     projects = results.get()
     for project in projects:
       if project in first:
-        if results.get(project, 'full') == 0:
-          noupdate_projects.append(project)
-        else:
+        if results.get(project, 'full') or results.get(project, 'filter'):
           modified_projects.append(project)
+        else:
+          noupdate_projects.append(project)
       else:
         new_projects.append(project)
 
