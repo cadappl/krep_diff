@@ -346,28 +346,41 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
         with bd.div(clazz='card w-75') as bdiv:
           with bdiv.div(clazz='card-block') as block:
             with block.table(clazz='table') as btb:
-              with btb.tr() as tr:
-                tr.td("Start Refs")
+              for title, refss in (
+                  ('Start Refs', brefs), ('End Refs', [erefs])):
+                with btb.tr() as tr:
+                  tr.td(title)
 
-                title = ''
-                for ref in brefs:
-                  title += ref
-                  # avaiable in 1.7.10
-                  ret, tags = project.tag('--points-at', ref)
-                  if ret == 0 and tags.strip():
-                    title += ' (%s)' % (', '.join(tags.split('\n')))
+                  with tr.wtd() as td:
+                    for m, ref in enumerate(refss):
+                      if m:
+                        td.br()
 
-                tr.td(title)
+                      if gitiles:
+                        td.a(
+                          ref,
+                          href='%s/plugins/gitiles/%s/+/%s^!' %
+                            (remote, name, ref))
+                      else:
+                        td.write(ref)
 
-              with btb.tr() as tr:
-                tr.td('End Refs')
+                      # avaiable in 1.7.10
+                      ret, tags = project.tag('--points-at', ref)
+                      if ret == 0 and tags.strip():
+                        td.write('(')
+                        for k, tag in enumerate(tags.split('\n')):
+                          if k > 0:
+                            td.write(', ')
 
-                title = erefs
-                ret, tags = project.tag('--points-at', erefs)
-                if ret == 0 and tags.strip():
-                  title += ' (%s)' % (', '.join(tags.split('\n')))
+                          if gitiles:
+                            td.a(
+                              tag,
+                              href='%s/plugins/gitiles/%s/+/%s' %
+                                (remote, name, tag))
+                          else:
+                            td.write(tag)
 
-                tr.td(title)
+                        td.write(')')
 
         bd.p()
         with bd.div(id='accordion') as acc:
