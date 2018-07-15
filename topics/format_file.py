@@ -71,8 +71,6 @@ class _Element(object):  # pylint: disable=R0902
     self.update(action, *args, **kws)
 
   def __enter__(self):
-    self.update(action='refresh')
-
     return self
 
   def __exit__(self, exc_type, exc_value, traceback):
