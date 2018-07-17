@@ -28,9 +28,12 @@ class Results:
     if name:
       if item:
         alt = {'full': 0, 'no_merge': 1, 'filter': 2, 'filter_no_merge': 3}
-        return self.changes[name][alt[item]]
+        if name in self.changes:
+          return self.changes[name][alt[item]]
+        else:
+          return 0
       else:
-        return self.changes[name]
+        return self.changes.get(name)
     else:
       return self.changes
 
