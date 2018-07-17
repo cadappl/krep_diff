@@ -147,10 +147,15 @@ purposed formats."""
                       project = second[pname]
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.a(project.uri, href='%s/index.html' % project.uri)
-                          td.span(
-                            results.get(project.uri, 'full'),
-                            clazz='badge badge-info')
+                          td.span(pname)
+                          for item, badge, page in (
+                              ('full', 'primary', 'index.html'),
+                              ('filter', 'secondary', 'filter.html')):
+                            val = results.get(pname, item)
+                            if val:
+                              td.a(
+                                val, href='%s/%s' % (pname, page),
+                                clazz='badge badge-%s' % badge)
 
           if noupdate_projects:
             index += 1
