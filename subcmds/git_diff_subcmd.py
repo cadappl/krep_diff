@@ -465,5 +465,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             'asserts/js/bootstrap.min.js', root, output))
 
     if results:
-      results.put(name, [fulla, fullm, filtera, filterm])
-
+      res = results.get(name) or [0, 0, 0, 0]
+      results.put(
+        name, [
+          res[0] or fulla,
+          res[1] or fullm,
+          res[2] or filtera,
+          res[3] or filterm])
