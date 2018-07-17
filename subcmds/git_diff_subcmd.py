@@ -354,7 +354,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 with btb.tr() as tr:
                   tr.td(title)
 
-                  with tr.wtd() as td:
+                  with tr.wtd(_nowrap=True) as td:
                     for m, ref in enumerate(refss):
                       if m:
                         td.br()
@@ -370,7 +370,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                       # avaiable in 1.7.10
                       ret, tags = project.tag('--points-at', ref)
                       if ret == 0 and tags.strip():
-                        td.write('(')
+                        td.write(' (')
                         for k, tag in enumerate(tags.split('\n')):
                           if k > 0:
                             td.write(', ')
