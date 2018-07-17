@@ -121,7 +121,10 @@ purposed formats."""
         bd.p()
         with bd.div(id='accordion') as acc:
           index = 1
-          if new_projects:
+          for pinfo in (new_projects, modified_projects):
+            if not pinfo:
+              continue
+
             with acc.div(clazz='card w-75', id='entire_%d' % index) as newp:
               name = 'new_project'
               hid = 'head_%d' % index
@@ -132,7 +135,7 @@ purposed formats."""
                       clazz='btn btn-link', data_toggle='collapse',
                       data_target='#%s' % name, aria_expanded='true',
                       aria_controls=name) as wb:
-                    wb.span(len(new_projects), clazz='badge badge-info')
+                    wb.span(len(pinfo), clazz='badge badge-info')
 
               with newp.div(
                   clazz='collapse show', id=name, aria_labelledby=hid,
@@ -140,36 +143,7 @@ purposed formats."""
                 with cont.div(clazz='card-body') as cbd:
                   with cbd.table(clazz='table table-hover table-striped') \
                       as table:
-                    for pname in sorted(new_projects):
-                      project = second[pname]
-                      with table.tr() as tr:
-                        with tr.wtd() as td:
-                          td.a(project.uri, href='%s/index.html' % project.uri)
-                          td.span(
-                            results.get(project.uri, 'full'),
-                            clazz='badge badge-info')
-
-          if modified_projects:
-            index += 1
-            with acc.div(clazz='card w-75', id='entire_%d' % index) as modp:
-              name = 'mod_project'
-              hid = 'head_%d' % index
-              with modp.div(clazz='card-header', id=hid) as dhd:
-                with dhd.wh5(clazz='mb-0') as h5:
-                  with h5.wbutton(
-                      'Modified Projects',
-                      clazz='btn btn-link', data_toggle='collapse',
-                      data_target='#%s' % name, aria_expanded='true',
-                      aria_controls=name) as wb:
-                    wb.span(len(modified_projects), clazz='badge badge-info')
-
-              with modp.div(
-                  clazz='collapse show', id=name, aria_labelledby=hid,
-                  data_parent='#%s' % name) as cont:
-                with cont.div(clazz='card-body') as cbd:
-                  with cbd.table(clazz='table table-hover table-striped') \
-                      as table:
-                    for pname in sorted(modified_projects):
+                    for pname in sorted(pinfo):
                       project = second[pname]
                       with table.tr() as tr:
                         with tr.wtd() as td:
