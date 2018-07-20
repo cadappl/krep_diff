@@ -307,9 +307,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       os.path.join(output, 'filter.html'),
       pattern, remote, gitiles, details, gen_no_merge, results)
 
-    if fresults.get(name, 'filter') == 0:
-      os.unlink(filter_name)
-
     # try cleaning the directory and parents
     def file_num_in_dir(dname):
       if os.path.exists(dname):
@@ -317,7 +314,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       else:
         return -1
 
-    dirname = os.path.dirname(filter_name)
+    dirname = output
     while len(dirname) > len(root) and file_num_in_dir(dirname) == 0:
       os.rmdir(dirname)
       dirname = os.path.dirname(dirname)
@@ -467,6 +464,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
           '',
           src=GitDiffSubcmd.deploy(
             'asserts/js/bootstrap.min.js', root, output))
+
+    # remove the generated file if all counts are zero
+    if not (fulla or fullm or filtera or filterm):
+      os.unlink(filename)
 
     if results:
       res = results.get(name) or [0, 0, 0, 0]
