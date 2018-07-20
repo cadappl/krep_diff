@@ -237,7 +237,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 if sha1 in details:
                   commit = details[sha1]
                 else:
-                  commit = CommitInfo(sha1, 'Unknown', 'Unknown', '')
+                  commit = CommitInfo(
+                    sha1, 'Unknown', 'Unknown', 'Unknown', '')
 
                 with tr.wtd() as td:
                   td.a(commit.author, href='mailto:%s' % commit.author)
