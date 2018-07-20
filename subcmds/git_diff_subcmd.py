@@ -173,13 +173,16 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     return CommitInfo(sha1, vals[0], vals[1], vals[2], info)
 
   @staticmethod
-  def get_commits_detail(project, sref, eref, *options):
-    details = dict()
+  def get_commits_with_detail(project, sref, eref, details=None, *options):
+    if details is None:
+      details = dict()
+
     sha1s = GitDiffSubcmd.get_commits(project, sref, eref, *options)
     for sha1 in sha1s:
-      details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
+      if sha1 not in details:
+        details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
 
-    return details
+    return sha1s, details
 
   @staticmethod
   def get_commit_ci(project, details, sha1):
@@ -293,16 +296,16 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if not os.path.exists(output):
       os.makedirs(output)
 
+    details = dict()
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'index.html'),
-      pattern, remote, gitiles, gen_no_merge, results, full=True)
+      pattern, remote, gitiles, details, gen_no_merge, results, full=True)
 
-    fresults = Results()
-    filter_name = os.path.join(output, 'filter.html')
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
-      filter_name, pattern, remote, gitiles, gen_no_merge, fresults)
+      os.path.join(output, 'filter.html'),
+      pattern, remote, gitiles, details, gen_no_merge, results)
 
     if fresults.get(name, 'filter') == 0:
       os.unlink(filter_name)
@@ -322,7 +325,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   @staticmethod
   def _generate_html(  # pylint: disable=R0915
       brefs, erefs, args, project, name, root, output, filename,  # pylint: disable=W0622
-      pattern, remote=None, gitiles=True, gen_no_merge=False,
+      pattern, remote=None, gitiles=True, details=None, gen_no_merge=False,
       results=None, full=False):
 
     fulla, fullm, filtera, filterm = 0, 0, 0, 0
@@ -388,13 +391,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
         bd.p()
         with bd.div(id='accordion') as acc:
-          details = GitDiffSubcmd.get_commits_detail(project, ref, erefs)
-
           index = 1
           # full log
           if full:
             for ref in brefs:
-              logs = GitDiffSubcmd.get_commits(project, ref, erefs)
+              logs, _ = GitDiffSubcmd.get_commits_with_detail(
+                project, ref, erefs, details)
               if logs:
                 fulla += len(logs)
                 GitDiffSubcmd.update_table(
@@ -419,7 +421,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             # full log with pattern
             bd.pre('Filtered Results')
             for ref in brefs:
-              logs = GitDiffSubcmd.get_commits(project, ref, erefs)
+              logs, _ = GitDiffSubcmd.get_commits_with_detail(
+                project, ref, erefs, details)
 
               filtered = list()
               for li in logs:
