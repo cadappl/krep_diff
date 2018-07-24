@@ -28,7 +28,7 @@ class Results:
     if name:
       if item:
         alt = {'full': 0, 'no_merge': 1, 'filter': 2, 'filter_no_merge': 3}
-        if name in self.changes:
+        if name in self.changes and item in alt:
           return self.changes[name][alt[item]]
         else:
           return 0
@@ -289,7 +289,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       # if two sha-1s are equaling, return
       if erefs == brefs[-1]:
         if results:
-          results.put(name, 0)
+          results.put(name, [0, 0, 0, 0])
 
         return
 
