@@ -120,24 +120,26 @@ purposed formats."""
 
         bd.p()
         with bd.div(id='accordion') as acc:
-          index = 1
-          for pinfo in (new_projects, modified_projects):
+          for pinfo, title in (
+              (new_projects, 'New Projects'),
+              (modified_projects, 'Modified Projects')):
             if not pinfo:
               continue
 
-            with acc.div(clazz='card w-75', id='entire_%d' % index) as newp:
-              name = 'new_project'
+            index = 1
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as pdiv:
+              name = 'project_%d' % index
               hid = 'head_%d' % index
-              with newp.div(clazz='card-header', id=hid) as dhd:
+              with pdiv.div(clazz='card-header', id=hid) as dhd:
                 with dhd.wh5(clazz='mb-0') as h5:
                   with h5.wbutton(
-                      'New Projects',
+                      title,
                       clazz='btn btn-link', data_toggle='collapse',
                       data_target='#%s' % name, aria_expanded='true',
                       aria_controls=name) as wb:
                     wb.span(len(pinfo), clazz='badge badge-info')
 
-              with newp.div(
+              with pdiv.div(
                   clazz='collapse show', id=name, aria_labelledby=hid,
                   data_parent='#%s' % name) as cont:
                 with cont.div(clazz='card-body') as cbd:
@@ -159,10 +161,10 @@ purposed formats."""
 
           if noupdate_projects:
             index += 1
-            with acc.div(clazz='card w-75', id='entire_%d' % index) as noupdt:
+            with acc.div(clazz='card w-75', id='entire_%d' % index) as pdiv:
               name = 'noupdt_project'
               hid = 'head_%d' % index
-              with noupdt.div(clazz='card-header', id=hid) as dhd:
+              with pdiv.div(clazz='card-header', id=hid) as dhd:
                 with dhd.wh5(clazz='mb-0') as h5:
                   with h5.wbutton(
                       'Non-updated Projects',
@@ -171,7 +173,7 @@ purposed formats."""
                       aria_controls=name) as wb:
                     wb.span(len(noupdate_projects), clazz='badge badge-info')
 
-              with noupdt.div(
+              with pdiv.div(
                   clazz='collapse show', id=name, aria_labelledby=hid,
                   data_parent='#%s' % name) as cont:
                 with cont.div(clazz='card-body') as cbd:
