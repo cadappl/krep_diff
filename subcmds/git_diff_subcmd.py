@@ -14,7 +14,7 @@ except ImportError:
 from topics import FormattedFile, GitProject, Pattern, SubCommand
 
 
-CommitInfo = namedtuple('CommitInfo', 'sha1,author,committer,title,info')
+CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
 
 
 class Results(object):
@@ -188,7 +188,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     vals = list()
     wrong = '!!Wrong decoded!!'
 
-    for item in ('%ae', '%ce', '%s'):
+    for item in ('%ai', '%ae', '%ce', '%s'):
       try:
         _, val = project.show(
           '--no-patch', '--oneline', '--format=%s' % item, sha1)
@@ -202,7 +202,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     except UnicodeDecodeError:
       info = wrong
 
-    return CommitInfo(sha1, vals[0], vals[1], vals[2], info)
+    return CommitInfo(sha1, vals[0], vals[1], vals[2], vals[3], info)
 
   @staticmethod
   def get_commits_with_detail(project, sref, eref, details=None, *options):
@@ -247,8 +247,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
           with cbd.table(clazz='table table-hover table-striped') as table:
             with table.tr() as tr:
               tr.th('SHA-1', scope='col')
+              tr.th('Date', scope='col')
               tr.th('Author', scope='col')
-              #tr.th('Committer', scope='col')
               tr.th('Title', scope='col')
 
             for sha1 in logs:
@@ -292,7 +292,14 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   commit = details.get(sha1)
                 else:
                   commit = CommitInfo(
-                    sha1, 'Unknown', 'Unknown', 'Unknown', '')
+                    sha1, '-', 'Unknown', 'Unknown', 'Unknown', '')
+
+                date = re.split(' [+-]', commit.date)[0] # ignore timezone
+                if reverted:
+                  with tr.wtd() as td:
+                    td.s(date)
+                else:
+                  tr.td(date)
 
                 with tr.wtd() as td:
                   td.a(commit.author, href='mailto:%s' % commit.author)
