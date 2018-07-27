@@ -310,6 +310,13 @@ class _Mutliple(_Partical):
     with _Pre(self.bundle, self, *args, **kws):
       pass
 
+  def s(self, *args, **kws):
+    with _S(self.bundle, self, *args, **kws):
+      pass
+
+  def ws(self, *args, **kws):
+    return _S(self.bundle, self, *args, **kws)
+
   def span(self, *args, **kws):
     with _Span(self.bundle, self, *args, **kws):
       pass
@@ -360,6 +367,12 @@ class _P(_Mutliple):
 class _Pre(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
     _Mutliple.__init__(self, bundle, 'pre', True, 'start', parent, *args, **kws)
+
+
+class _S(_Mutliple):
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(
+      self, bundle, 's', True, 'start', parent, *args, **kws)
 
 
 class _Span(_Mutliple):
