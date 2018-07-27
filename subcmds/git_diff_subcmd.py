@@ -230,7 +230,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     tid = 'div_%d' % id
     hid = 'header_%d' % id
 
-    with accord.div(clazz='card w-90', id='entire_%d' % id) as dcard:
+    with accord.div(clazz='card w-95', id='entire_%d' % id) as dcard:
       with dcard.div(clazz='card-header', id=hid) as dhd:
         with dhd.wh5(clazz='mb-0') as h5:
           with h5.wbutton(
