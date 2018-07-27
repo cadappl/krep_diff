@@ -253,8 +253,23 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
             for sha1 in logs:
               with table.tr() as tr:
+                reverted = details.is_reverted(sha1)
                 with tr.wtd() as td:
                   if name:
+                    if reverted:
+                      with td.wpre(_nowrap=True) as pre:
+                        with pre.ws() as ws:
+                          if gitiles:
+                            ws.a(
+                              sha1[:20],
+                              href='%s/#/q/%s' % (remote, sha1))
+                            ws.a(
+                              sha1[20:],
+                              href='%s/plugins/gitiles/%s/+/%s^!' %
+                                (remote, name, sha1))
+                          else:
+                            ws.a(sha1, href='%s/#/q/%s' % (remote, sha1))
+                    else:
                       with td.wpre(_nowrap=True) as pre:
                         if gitiles:
                           pre.a(
@@ -267,7 +282,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                         else:
                           pre.a(sha1, href='%s/#/q/%s' % (remote, sha1))
                   else:
-                    td.pre(sha1)
+                    if reverted:
+                      with td.wpre() as pre:
+                        pre.s(sha1)
+                    else:
+                      td.pre(sha1)
 
                 if sha1 in details:
                   commit = details.get(sha1)
@@ -279,11 +298,20 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   td.a(commit.author, href='mailto:%s' % commit.author)
 
                 if commit.info:
-                  tr.td(
-                    commit.title, data_toggle='tooltip', data_html='true',
-                    title="%s" % tr.escape_str(commit.info))
+                  if reverted:
+                    with tr.wtd(data_toggle='tooltip', data_html='true',
+                        title="%s" % tr.escape_str(commit.info)) as td:
+                      td.s(commit.title)
+                  else:
+                    tr.td(
+                      commit.title, data_toggle='tooltip', data_html='true',
+                      title="%s" % tr.escape_str(commit.info))
                 else:
-                  tr.td(commit.title, clazz='align-middle')
+                  if reverted:
+                    with tr.wtd(clazz='align-middle') as td:
+                      td.s(commit.title)
+                  else:
+                    tr.td(commit.title, clazz='align-middle')
 
   @staticmethod
   def generate_report(  # pylint: disable=R0915
