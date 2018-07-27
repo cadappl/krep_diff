@@ -1,5 +1,6 @@
 
 import os
+import re
 import shutil
 
 from collections import namedtuple
@@ -16,7 +17,7 @@ from topics import FormattedFile, GitProject, Pattern, SubCommand
 CommitInfo = namedtuple('CommitInfo', 'sha1,author,committer,title,info')
 
 
-class Results:
+class Results(object):
   def __init__(self):
     self.changes = dict()
 
@@ -36,6 +37,37 @@ class Results:
         return self.changes.get(name)
     else:
       return self.changes
+
+
+class Details(object):
+  REVERTED_MATCHER = re.compile(
+    r"This reverts commit ([a-f0-9]+)\.", re.MULTILINE)
+
+  def __init__(self):
+    self.info = dict()
+    self.reverted = set()
+
+  def __contains__(self, sha1):
+    return sha1 in self.info
+
+  def __getattr__(self, sha1):
+    return self.info.get(sha1)
+
+  def put(self, sha1, commit):
+    self.info[sha1] = commit
+    # detect the reverted commit
+    if commit.title and commit.title.startswith('Revert "'):
+      revisions = re.findall(Details.REVERTED_MATCHER, commit.info)
+      if revisions:
+        self.reverted.add(sha1)
+        for rev in revisions:
+          self.reverted.add(rev)
+
+  def get(self, sha1):
+    return self.info.get(sha1)
+
+  def is_reverted(self, sha1):
+    return sha1 in self.reverted
 
 
 class GitDiffSubcmd(SubCommand):
@@ -175,21 +207,21 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   @staticmethod
   def get_commits_with_detail(project, sref, eref, details=None, *options):
     if details is None:
-      details = dict()
+      details = Details()
 
     sha1s = GitDiffSubcmd.get_commits(project, sref, eref, *options)
     for sha1 in sha1s:
       if sha1 not in details:
-        details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
+        details.put(sha1, GitDiffSubcmd.get_commit_detail(project, sha1))
 
     return sha1s, details
 
   @staticmethod
   def get_commit_ci(project, details, sha1):
     if sha1 not in details:
-      details[sha1] = GitDiffSubcmd.get_commit_detail(project, sha1)
+      details.put(sha1, GitDiffSubcmd.get_commit_detail(project, sha1))
 
-    return details[sha1]
+    return details.get(sha1)
 
   @staticmethod
   def update_table(
@@ -238,7 +270,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                     td.pre(sha1)
 
                 if sha1 in details:
-                  commit = details[sha1]
+                  commit = details.get(sha1)
                 else:
                   commit = CommitInfo(
                     sha1, 'Unknown', 'Unknown', 'Unknown', '')
@@ -296,7 +328,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if not os.path.exists(output):
       os.makedirs(output)
 
-    details = dict()
+    details = Details()
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'index.html'),
