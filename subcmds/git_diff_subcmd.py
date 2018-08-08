@@ -114,11 +114,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       '--gitiles',
       dest='gitiles', action='store_true',
       help='Enable gitiles links within the SHA-1')
-    options.add_option(
-      '--format',
-      dest='format', metavar='TEXT, HTML, ALL',
-      action='store', default='html',
-      help='Set the report format. default: %default')
 
   def execute(self, options, *args, **kws):
     SubCommand.execute(self, options, *args, **kws)
@@ -140,11 +135,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       if ulp.port:
         remote += ':%d' % ulp.port
 
-    format = options.format and options.format.lower()  # pylint: disable=W0622
     pattern = GitDiffSubcmd.get_patterns(options)  # pylint: disable=E1101
     GitDiffSubcmd.generate_report(
       args, project,
-      name or '', options.output, options.output, format,
+      name or '', options.output, options.output,
       pattern, remote, options.gitiles, options.gen_no_merge)
 
   @staticmethod
@@ -322,7 +316,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
   @staticmethod
   def generate_report(  # pylint: disable=R0915
-      args, project, name, root, output, format,  # pylint: disable=W0622
+      args, project, name, root, output, # pylint: disable=W0622
       pattern, remote=None, gitiles=True, gen_no_merge=False, results=None):
     def _secure_sha(gitp, refs):
       ret, sha1 = gitp.rev_parse(refs)
@@ -334,11 +328,6 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
           return sha1
         else:
           return ''
-
-    EXTENSIONS = {'txt': '.txt', 'html': '.html', 'all': ''}
-    if format not in EXTENSIONS:
-      print('Error: Unknown format to generate ....')
-      return None
 
     num = 0
     brefs = list()

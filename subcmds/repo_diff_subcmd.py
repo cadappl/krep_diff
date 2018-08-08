@@ -71,7 +71,7 @@ purposed formats."""
       GitDiffSubcmd.generate_report(
         argp, origins[project],
         project, options.output,
-        os.path.join(options.output, project), options.format,
+        os.path.join(options.output, project),
         pattern, remote, options.gitiles, options.gen_no_merge, results)
 
     self.run_with_thread(
