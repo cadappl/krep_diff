@@ -409,7 +409,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
               for title, refss in (
                   ('Start Refs', brefs), ('End Refs', [erefs])):
                 with btb.tr() as tr:
-                  tr.td(title)
+                  tr.td(title, clazz='table-active', scope='row')
 
                   with tr.wtd(_nowrap=True) as td:
                     for m, ref in enumerate(refss):
