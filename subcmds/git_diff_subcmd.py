@@ -17,26 +17,37 @@ from topics import FormattedFile, GitProject, Pattern, SubCommand
 CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
 
 
-class Results(object):
-  def __init__(self):
-    self.changes = dict()
+class Result(object):
+  def __init__(self, full=0, no_merge=0, filter=0, filter_no_merge=0):
+    self.full = full
+    self.no_merge = no_merge
+    self.filter = filter
+    self.filter_no_merge = filter_no_merge
 
-  @synchronized
-  def put(self, name, value):
-    self.changes[name] = value
+  def __len__(self):
+    return self.full + self.no_merge + self.filter + self.filter_no_merge
 
-  def get(self, name=None, item=None):
-    if name:
-      if item:
-        alt = {'full': 0, 'no_merge': 1, 'filter': 2, 'filter_no_merge': 3}
-        if name in self.changes and item in alt:
-          return self.changes[name][alt[item]]
-        else:
-          return 0
-      else:
-        return self.changes.get(name)
+  def __str__(self):
+    return '<%r full=%d no_merge=%s filter=%d filter_no_merge=%d>' \
+        % (self, self.full, self.no_merge, self.filter, self.filter_no_merge)
+
+  def update(self, full=None, no_merge=None, filter=None, filter_no_merge=None,
+             result=None, override=True):
+    if override:
+      if full is not None: self.full = full
+      if no_merge is not None: self.no_merge = no_merge
+      if filter is not None: self.filter = filter
+      if filter_no_merge is not None: self.filter_no_merge = filter_no_merge
     else:
-      return self.changes
+      if full is not None: self.full |= full
+      if no_merge is not None: self.no_merge |= no_merge
+      if filter is not None: self.filter |= filter
+      if filter_no_merge is not None: self.filter_no_merge |= filter_no_merge
+
+    if result:
+      self.update(
+        full=self.full, no_merge=self.no_merge, filter=self.filter,
+        filter_no_merge=self.filter_no_merge, override=override)
 
 
 class Details(object):
@@ -381,7 +392,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       pattern, remote=None, gitiles=True, details=None, gen_no_merge=False,
       results=None, full=False):
 
-    fulla, fullm, filtera, filterm = 0, 0, 0, 0
+    res = Result()
     with FormattedFile.open(filename, 'html') as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
@@ -451,7 +462,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
               logs, _ = GitDiffSubcmd.get_commits_with_detail(
                 project, ref, erefs, details)
               if logs:
-                fulla += len(logs)
+                res.update(full=len(logs))
                 GitDiffSubcmd.update_table(
                   acc, details, logs, index, '%s..%s' % (ref, erefs),
                   remote, name, gitiles)
@@ -463,7 +474,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                 logs = GitDiffSubcmd.get_commits(
                   project, ref, erefs, '--no-merges')
                 if logs:
-                  fullm += len(logs)
+                  res.update(no_merge=len(logs))
                   GitDiffSubcmd.update_table(
                     acc, details, logs, index,
                     '%s..%s (No merges)' % (ref, erefs),
@@ -484,7 +495,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   filtered.append(li)
 
               if filtered:
-                filtera += len(filtered)
+                res.update(filter=len(filtered))
                 GitDiffSubcmd.update_table(
                   acc, details, filtered, index, '%s..%s' % (ref, erefs),
                   remote, name, gitiles)
@@ -503,7 +514,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                     filtered.append(li)
 
                 if filtered:
-                  filterm += len(filtered)
+                  res.update(filter_no_merge=len(filtered))
                   GitDiffSubcmd.update_table(
                     acc, details, filtered, index,
                     '%s..%s (No merges)' % (ref, erefs),
@@ -522,14 +533,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
             'asserts/js/bootstrap.min.js', root, output))
 
     # remove the generated file if all counts are zero
-    if not (fulla or fullm or filtera or filterm):
+    if not res:
       os.unlink(filename)
 
-    if results:
-      res = results.get(name) or [0, 0, 0, 0]
-      results.put(
-        name, [
-          res[0] or fulla,
-          res[1] or fullm,
-          res[2] or filtera,
-          res[3] or filterm])
+    if results is not None:
+      orig = results.get(name, res)
+      orig.update(result=res, override=False)
+      results[name] = orig

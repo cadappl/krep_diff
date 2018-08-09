@@ -2,7 +2,7 @@
 import os
 
 from synchronize import synchronized
-from git_diff_subcmd import Results, GitDiffSubcmd
+from git_diff_subcmd import GitDiffSubcmd
 from krep_subcmds.repo_subcmd import RepoSubcmd
 from krep_subcmds.repo_mirror_subcmd import RepoMirrorSubcmd
 from topics import FormattedFile, SubCommandWithThread
@@ -57,7 +57,7 @@ purposed formats."""
       else:
         second = make_projects(manifestf(options))
 
-    results = Results()
+    results = dict()
 
     def generate_report(
         project, remote, options, origins, references, pattern, results):
@@ -83,10 +83,9 @@ purposed formats."""
     removed_projects = list()
     noupdate_projects = list()
 
-    projects = results.get()
-    for project in projects:
+    for project, result in results.items():
       if project in first:
-        if results.get(project, 'full') or results.get(project, 'filter'):
+        if result.full or result.filter:
           modified_projects.append(project)
         else:
           noupdate_projects.append(project)
@@ -153,7 +152,7 @@ purposed formats."""
                           for item, badge, page in (
                               ('full', 'primary', 'index.html'),
                               ('filter', 'secondary', 'filter.html')):
-                            val = results.get(pname, item)
+                            val = getattr(result, item)
                             if val:
                               td.a(
                                 val, href='%s/%s' % (pname, page),
