@@ -18,7 +18,9 @@ CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
 
 
 class Result(object):
-  def __init__(self, full=0, no_merge=0, filter=0, filter_no_merge=0):
+  def __init__(self, remote=None, full=0, no_merge=0,
+               filter=0, filter_no_merge=0):
+    self.remote = remote
     self.full = full
     self.no_merge = no_merge
     self.filter = filter
@@ -28,8 +30,9 @@ class Result(object):
     return self.full + self.no_merge + self.filter + self.filter_no_merge
 
   def __str__(self):
-    return '<%r full=%d no_merge=%s filter=%d filter_no_merge=%d>' \
-        % (self, self.full, self.no_merge, self.filter, self.filter_no_merge)
+    return '<%r remote=%s full=%d no_merge=%s filter=%d filter_no_merge=%d>' \
+        % (self, self.remote, self.full, self.no_merge, self.filter,
+           self.filter_no_merge)
 
   def update(self, full=None, no_merge=None, filter=None, filter_no_merge=None,
              result=None, override=True):
@@ -392,7 +395,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       pattern, remote=None, gitiles=True, details=None, gen_no_merge=False,
       results=None, full=False):
 
-    res = Result()
+    res = Result(remote)
     with FormattedFile.open(filename, 'html') as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
