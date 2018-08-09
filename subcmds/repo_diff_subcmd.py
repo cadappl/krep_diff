@@ -148,7 +148,14 @@ purposed formats."""
                       project = second[pname]
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.span(pname)
+                          result = results.get(pname)
+                          if options.gitiles and result.remote:
+                            td.a(
+                              pname, href='%s/plugins/gitiles/%s' % (
+                                result.remote, pname))
+                          else:
+                            td.span(pname)
+
                           for item, badge, page in (
                               ('full', 'primary', 'index.html'),
                               ('filter', 'secondary', 'filter.html')):
@@ -181,7 +188,13 @@ purposed formats."""
                     for pname in sorted(noupdate_projects):
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.span(pname)
+                          result = results.get(pname)
+                          if options.gitiles and result.remote:
+                            td.a(
+                              pname, href='%s/plugins/gitiles/%s' % (
+                                result.remote, pname))
+                          else:
+                            td.span(pname)
 
           if removed_projects:
             index += 1
@@ -206,7 +219,13 @@ purposed formats."""
                     for pname in sorted(removed_projects):
                       with table.tr() as tr:
                         with tr.wtd() as td:
-                          td.span(pname)
+                          result = results.get(pname)
+                          if options.gitiles and result.remote:
+                            td.a(
+                              pname, href='%s/plugins/gitiles/%s' % (
+                                result.remote, pname))
+                          else:
+                            td.span(pname)
 
         bd.script(
           "window.jQuery || document.write('<script src=\"%s\">"
