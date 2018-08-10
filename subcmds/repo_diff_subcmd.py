@@ -5,7 +5,8 @@ from synchronize import synchronized
 from git_diff_subcmd import GitDiffSubcmd
 from krep_subcmds.repo_subcmd import RepoSubcmd
 from krep_subcmds.repo_mirror_subcmd import RepoMirrorSubcmd
-from topics import FormattedFile, SubCommandWithThread
+from topics import FormattedFile, RaiseExceptionIfOptionMissed, \
+  SubCommandWithThread
 
 
 class RepoDiffSubcmd(GitDiffSubcmd, SubCommandWithThread):
@@ -30,6 +31,10 @@ purposed formats."""
       help='Set to work with a git-repo mirror project')
 
   def execute(self, options, *args, **kws):
+    if options.gitiles:
+      RaiseExceptionIfOptionMissed(
+        options.remote, "remote need set for gitiles")
+
     pattern = RepoDiffSubcmd.get_patterns(options)  # pylint: disable=E1101
     if not os.path.exists(options.output):
       os.makedirs(options.output)

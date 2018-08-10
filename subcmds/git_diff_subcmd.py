@@ -11,7 +11,8 @@ try:
 except ImportError:
   from urlparse import urlparse
 
-from topics import FormattedFile, GitProject, Pattern, SubCommand
+from topics import FormattedFile, GitProject, Pattern, \
+  RaiseExceptionIfOptionMissed, SubCommand
 
 
 CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
@@ -131,6 +132,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
   def execute(self, options, *args, **kws):
     SubCommand.execute(self, options, *args, **kws)
+
+    if options.gitiles:
+      RaiseExceptionIfOptionMissed(
+        options.remote, "remote need set for gitiles")
 
     name, remote = None, options.remote
     project = GitProject(None, worktree=options.working_dir)
