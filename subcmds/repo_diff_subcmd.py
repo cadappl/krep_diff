@@ -105,7 +105,7 @@ purposed formats."""
         os.path.join(options.output, 'index.html'), 'html') as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
-        head.title('Git-repo Report for manifest difference')
+        head.title('Log Report for Manifest Difference')
 
         head.comment(' Boot strap core CSS ')
         head.link(
