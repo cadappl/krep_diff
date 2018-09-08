@@ -36,12 +36,17 @@ class Result(object):
            self.filter_no_merge)
 
   def update(self, full=None, no_merge=None, filter=None, filter_no_merge=None,
-             result=None, override=True):
+             result=None, override=True, increase=False):
     if override:
       if full is not None: self.full = full
       if no_merge is not None: self.no_merge = no_merge
       if filter is not None: self.filter = filter
       if filter_no_merge is not None: self.filter_no_merge = filter_no_merge
+    elif increase:
+      self.full += full or 0
+      self.no_merge += no_merge or 0
+      self.filter += filter or 0
+      self.filter_no_merge += filter_no_merge or 0
     else:
       if full is not None: self.full |= full
       if no_merge is not None: self.no_merge |= no_merge
