@@ -18,14 +18,24 @@ from topics import FormattedFile, GitProject, Pattern, \
 CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
 
 
-class Result(object):
-  def __init__(self, remote=None, full=0, no_merge=0,
-               filter=0, filter_no_merge=0):
-    self.remote = remote
+class Persist(object):
+  def __init__(self, full, no_merge, filter, filter_no_merge):
     self.full = full
     self.no_merge = no_merge
     self.filter = filter
     self.filter_no_merge = filter_no_merge
+
+  def __len__(self):
+    return len(self.full) + len(self.no_merge) \
+      + len(self.filter) + len(self.filter_no_merge)
+
+class Result(Persist):
+  def __init__(self, remote=None, full=0, no_merge=0,
+               filter=0, filter_no_merge=0):
+
+    Persist.__init__(self, full, no_merge, filter, filter_no_merge)
+
+    self.remote = remote
 
   def __len__(self):
     return self.full + self.no_merge + self.filter + self.filter_no_merge
@@ -426,6 +436,37 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
           with nav.wbutton(clazz="navbar-toggler", type="button") as bnav:
             bnav.span('', clazz="navbar-toggler-icon")
 
+        counts = Result()
+        persists = dict()
+        for ref in brefs:
+          full_logs, _ = GitDiffSubcmd.get_commits_with_detail(
+            project, ref, erefs, details)
+          full_no_merged_logs = GitDiffSubcmd.get_commits(
+            project, ref, erefs, '--no-merges')
+
+          counts.update(
+            full=len(full_logs), no_merge=len(full_no_merged_logs),
+            increase=True)
+
+          filtered_logs = list()
+          filtered_no_merged_logs = list()
+          if pattern:
+            for li in full_logs:
+              ci = GitDiffSubcmd.get_commit_ci(project, details, li)
+              if pattern.match('e,email', ci.committer):
+                filtered_logs.append(li)
+                counts.update(filter=len(filtered_logs), increase=True)
+
+                if li in full_no_merged_logs:
+                  filtered_no_merged_logs.append(li)
+                  counts.update(
+                    filter_no_merge=len(filtered_no_merged_logs),
+                    increase=True)
+
+          persists[ref] = Persist(
+            full_logs, full_no_merged_logs, filtered_logs,
+            filtered_no_merged_logs)
+
         bd.p()
         with bd.div(clazz='card w-75') as bdiv:
           with bdiv.div(clazz='card-block') as block:
@@ -470,22 +511,20 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
         with bd.div(id='accordion') as acc:
           index = 1
           # full log
-          if full:
+          if full and counts.full:
             for ref in brefs:
-              logs, _ = GitDiffSubcmd.get_commits_with_detail(
-                project, ref, erefs, details)
+              logs = persists[ref].full
               if logs:
                 res.update(full=len(logs))
                 GitDiffSubcmd.update_table(
-                  acc, details, logs, index, '%s..%s' % (ref, erefs),
+                  acc, details, logs, index, 'Logs of %s..%s' % (ref, erefs),
                   remote, name, gitiles)
                 index += 1
 
             # log with no merge
-            if gen_no_merge:
+            if gen_no_merge and counts.no_merge:
               for ref in brefs:
-                logs = GitDiffSubcmd.get_commits(
-                  project, ref, erefs, '--no-merges')
+                logs = persists[ref].no_merge
                 if logs:
                   res.update(no_merge=len(logs))
                   GitDiffSubcmd.update_table(
@@ -494,43 +533,27 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                     remote, name, gitiles)
                   index += 1
 
-          if pattern:
+          if pattern and counts.filter:
             # full log with pattern
-            bd.pre('Filtered Results')
             for ref in brefs:
-              logs, _ = GitDiffSubcmd.get_commits_with_detail(
-                project, ref, erefs, details)
-
-              filtered = list()
-              for li in logs:
-                ci = GitDiffSubcmd.get_commit_ci(project, details, li)
-                if pattern.match('e,email', ci.committer):
-                  filtered.append(li)
-
-              if filtered:
-                res.update(filter=len(filtered))
+              logs = persists[ref].filter
+              if logs:
+                res.update(filter=len(logs))
                 GitDiffSubcmd.update_table(
-                  acc, details, filtered, index, '%s..%s' % (ref, erefs),
+                  acc, details, logs, index,
+                  'Filtered logs of %s..%s' % (ref, erefs),
                   remote, name, gitiles)
                 index += 1
 
             # log with pattern and no merge
-            if gen_no_merge:
+            if gen_no_merge and counts.filter_no_merge:
               for ref in brefs:
-                logs = GitDiffSubcmd.get_commits(
-                  project, ref, erefs, '--no-merges')
-
-                filtered = list()
-                for li in logs:
-                  ci = GitDiffSubcmd.get_commit_ci(project, details, li)
-                  if pattern.match('e,email', ci.committer):
-                    filtered.append(li)
-
-                if filtered:
-                  res.update(filter_no_merge=len(filtered))
+                logs = persists[ref].filtered_no_merged_logs
+                if logs:
+                  res.update(filter_no_merge=len(logs))
                   GitDiffSubcmd.update_table(
-                    acc, details, filtered, index,
-                    '%s..%s (No merges)' % (ref, erefs),
+                    acc, details, logs, index,
+                    'Filtered logs of %s..%s (No merges)' % (ref, erefs),
                     remote, name, gitiles)
                   index += 1
 
