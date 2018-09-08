@@ -282,29 +282,33 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                   if name:
                     if reverted:
                       with td.wpre(_nowrap=True) as pre:
-                        with pre.ws() as ws:
+                        if gitiles or remote:
+                          with pre.ws() as ws:
+                            if gitiles:
+                              ws.a(
+                                sha1[:20], href='%s/#/q/%s' % (remote, sha1))
+                              ws.a(
+                                sha1[20:],
+                                href='%s/plugins/gitiles/%s/+/%s^!' %
+                                  (remote, name, sha1))
+                            else:
+                              ws.a(sha1, href='%s/#/q/%s' % (remote, sha1))
+                        else:
+                          pre.s(sha1)
+                    else:
+                      if gitiles or remote:
+                        with td.wpre(_nowrap=True) as pre:
                           if gitiles:
-                            ws.a(
-                              sha1[:20],
-                              href='%s/#/q/%s' % (remote, sha1))
-                            ws.a(
+                            pre.a(
+                              sha1[:20], href='%s/#/q/%s' % (remote, sha1))
+                            pre.a(
                               sha1[20:],
                               href='%s/plugins/gitiles/%s/+/%s^!' %
                                 (remote, name, sha1))
                           else:
-                            ws.a(sha1, href='%s/#/q/%s' % (remote, sha1))
-                    else:
-                      with td.wpre(_nowrap=True) as pre:
-                        if gitiles:
-                          pre.a(
-                            sha1[:20],
-                            href='%s/#/q/%s' % (remote, sha1))
-                          pre.a(
-                            sha1[20:],
-                            href='%s/plugins/gitiles/%s/+/%s^!' %
-                              (remote, name, sha1))
-                        else:
-                          pre.a(sha1, href='%s/#/q/%s' % (remote, sha1))
+                            pre.a(sha1, href='%s/#/q/%s' % (remote, sha1))
+                      else:
+                        td.pre(sha1)
                   else:
                     if reverted:
                       with td.wpre() as pre:
