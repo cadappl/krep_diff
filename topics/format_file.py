@@ -279,8 +279,8 @@ class _Mutliple(_Partical):
   def wcode(self, *args, **kws):
     return _Code(self.bundle, parent=self, *args, **kws)
 
-  def div(self, **kws):
-    return _Div(self.bundle, parent=self, **kws)
+  def div(self, *args, **kws):
+    return _Div(self.bundle, self, *args, **kws)
 
   def h2(self, *args, **kws):
     with _H2(self.bundle, self, *args, **kws):
@@ -340,8 +340,8 @@ class _Code(_Mutliple):
 
 
 class _Div(_Mutliple):
-  def __init__(self, bundle, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'div', *args, **kws)
+  def __init__(self, bundle, parent=None, *args, **kws):
+    _Mutliple.__init__(self, bundle, 'div', True, 'start', parent, *args, **kws)
 
 
 class _H2(_Mutliple):
