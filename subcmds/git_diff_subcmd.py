@@ -259,14 +259,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     hid = 'header_%d' % id
 
     with accord.div(clazz='card w-95', id='entire_%d' % id) as dcard:
-      with dcard.div(clazz='card-header', id=hid) as dhd:
-        with dhd.wh5(clazz='mb-0') as h5:
-          with h5.wbutton(
-              title,
-              clazz='btn btn-link', data_toggle='collapse',
-              data_target='#%s' % tid, aria_expanded='true',
-              aria_controls=tid) as wb:
-            wb.span(len(logs), clazz='badge badge-info')
+      with dcard.div('%s ' % title, clazz='card-header', id=hid) as dhd:
+        dhd.span(len(logs), clazz='badge badge-info',
+          data_toggle='collapse', data_target='#%s' % tid,
+          aria_expanded='true', aria_controls=tid)
 
       with dcard.div(
           clazz='collapse show', id=tid, aria_labelledby=hid,
