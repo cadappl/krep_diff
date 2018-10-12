@@ -1,6 +1,6 @@
 {
   "name": "krep-git-diff",
-  "title": "krep-git-diff",
+  "version": "0.1",
   "description": "Report generator for Git logs",
   "repository": {
     "type": "git",
@@ -8,9 +8,7 @@
   },
   "license": "APLv2",
   "dependencies": {
-    "bootstrap": "v4.0.0"
-  },
-  "devDependencies": {
-    "bootstrap": "v4.0.0"
+    "bootstrap": "^4.0.0",
+    "krep": "^0.3"
   }
 }
