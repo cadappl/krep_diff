@@ -311,7 +311,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
                         td.pre(sha1)
                   else:
                     if reverted:
-                      with td.wpre() as pre:
+                      with td.wpre(_nowrap=True) as pre:
                         pre.s(sha1)
                     else:
                       td.pre(sha1)
