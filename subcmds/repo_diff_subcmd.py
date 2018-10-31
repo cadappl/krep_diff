@@ -22,7 +22,7 @@ Handle the git-repo project git commits diff and generate the reports in
 purposed formats."""
 
   def options(self, optparse):
-    GitDiffSubcmd.options(self, optparse)
+    GitDiffSubcmd.options(self, optparse, inherited=True)
 
     options = optparse.add_option_group('Repo-tool options')
     options.add_option(

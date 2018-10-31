@@ -117,7 +117,7 @@ separated report either.
 The output format would be set to the plain text or HTML with link to the
 gerrit server which can provide a query of the commit if gerrit is enabled."""
 
-  def options(self, optparse):
+  def options(self, optparse, inherited=False):
     SubCommand.options(self, optparse, modules=globals())
 
     options = optparse.add_option_group('Remote options')
@@ -125,6 +125,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       '-r', '--remote',
       dest='remote', action='store',
       help='Set the remote server location')
+    if not inherited:
+      options.add_option(
+        '-n', '--name',
+        dest='name', action='store',
+        help='Set the git repository name')
 
     options = optparse.get_option_group('--hook-dir') or \
       optparse.add_option_group('File options')
@@ -172,7 +177,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     pattern = GitDiffSubcmd.get_patterns(options)  # pylint: disable=E1101
     GitDiffSubcmd.generate_report(
       args, project,
-      name or '', options.output, options.output,
+      options.name or name or '', options.output, options.output,
       pattern, remote, options.gitiles, options.gen_no_merge)
 
   @staticmethod
