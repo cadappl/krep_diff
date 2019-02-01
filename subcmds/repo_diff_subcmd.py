@@ -1,5 +1,6 @@
 
 import os
+import time
 
 from synchronize import synchronized
 from git_diff_subcmd import GitDiffSubcmd
@@ -73,11 +74,16 @@ purposed formats."""
         argp.append(references[project].revision)
 
       argp.append(origins[project].revision)
+
+      start = time.time()
       GitDiffSubcmd.generate_report(
         argp, origins[project],
         project, options.output,
         os.path.join(options.output, project),
         pattern, remote, options.gitiles, options.gen_no_merge, results)
+
+      print('Handle %s with %s' % (
+        origins[project], GitDiffSubcmd.time_diff(time.time(), start)))
 
     self.run_with_thread(
       options.job, second, generate_report, options.remote, options,

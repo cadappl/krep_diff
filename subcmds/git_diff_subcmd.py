@@ -1,6 +1,7 @@
 
 import os
 import re
+import time
 import shutil
 
 from collections import namedtuple
@@ -197,6 +198,29 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     return os.path.relpath(target, refer)
 
   @staticmethod
+  def time_diff(tia, tib):
+    out = ''
+
+    hours, secs = divmod(tia - tib, 3600)
+    if hours > 1:
+      out += '%d hours ' % hours
+    elif hours == 1:
+      out += '%d hour ' % hours
+
+    mins, secs = divmod(secs, 60)
+    if mins > 1:
+      out += '%d minutes ' % mins
+    elif mins == 1:
+      out += '%d minutes ' % mins
+
+    if secs > 1:
+      out += '%d seconds' % secs
+    elif secs == 1:
+      out += '%d second' % secs
+
+    return out
+
+  @staticmethod
   def get_commits(project, sref, eref, *options):
     args = list()
     if len(options) > 0:
@@ -388,6 +412,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
         return
 
+    start = time.time()
     if not os.path.exists(output):
       os.makedirs(output)
 
@@ -413,6 +438,11 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     while len(dirname) > len(root) and file_num_in_dir(dirname) == 0:
       os.rmdir(dirname)
       dirname = os.path.dirname(dirname)
+
+    if dirname != output:
+      print(' > %s cleaned' % name)
+
+    print('Totally cost: %s' % GitDiffSubcmd.time_diff(time.time(), start))
 
   @staticmethod
   def _generate_html(  # pylint: disable=R0915
