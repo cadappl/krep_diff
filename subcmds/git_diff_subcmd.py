@@ -140,8 +140,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
     options = optparse.add_option_group('Format options')
     options.add_option(
-      '--generate-no-merge',
-      dest='generate_no_merge', action='store_true',
+      '--no-merge',
+      dest='gen_no_merge', action='store_true',
       help='Generate the table without merge')
 
     options = optparse.add_option_group('Format options')
