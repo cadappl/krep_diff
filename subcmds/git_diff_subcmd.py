@@ -215,7 +215,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
 
     if secs > 1:
       out += '%d seconds' % secs
-    elif secs == 1:
+    else:
       out += '%d second' % secs
 
     return out
