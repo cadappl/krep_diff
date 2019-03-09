@@ -37,8 +37,7 @@ class _Element(object):  # pylint: disable=R0902
   PHRASE_COMPLETE = 3
 
   def __init__(
-      self, bundle, name=None, htmltext=True, action='start',
-      parent=None, *args, **kws):
+      self, bundle, name=None, action='start', parent=None, *args, **kws):
 
     self.name = name
     self.bundle = bundle
@@ -215,15 +214,14 @@ class _Table(_Element):
 
 
 class _Partical(_Element):
-  def __init__(self, bundle, name, htmltext=True, action='start',
-      parent=None, *args, **kws):
+  def __init__(self, bundle, name, action='start', parent=None, *args, **kws):
     _Element.__init__(
-      self, bundle, name, htmltext, action, parent, *args, **kws)
+      self, bundle, name, action, parent, *args, **kws)
 
   class _Comment(_Element):
     def __init__(self, bundle, parent, *args, **kws):
       _Element.__init__(
-        self, bundle, '', False, 'start', parent, *args, **kws)
+        self, bundle, '', 'start', parent, *args, **kws)
       self.set_tag('!--', '--')
 
   def comment(self, *args):
@@ -231,13 +229,13 @@ class _Partical(_Element):
       pass
 
 class _Mutliple(_Partical):
-  def __init__(self, bundle, name, htmltext=True, action='start',
+  def __init__(self, bundle, name, action='start',
       parent=None, *args, **kws):
-    _Partical.__init__(self, bundle, name, htmltext, action, parent, *args, **kws)
+    _Partical.__init__(self, bundle, name, action, parent, *args, **kws)
 
   class _A(_Element):
     def __init__(self, bundle, parent=None, *args, **kws):
-      _Element.__init__(self, bundle, 'a', True, 'start', parent, *args, **kws)
+      _Element.__init__(self, bundle, 'a', 'start', parent, *args, **kws)
 
   def a(self, *args, **kws):
     with _Mutliple._A(self.bundle, self, *args, **kws):
@@ -245,7 +243,7 @@ class _Mutliple(_Partical):
 
   class _Br(_Element):
     def __init__(self, bundle, parent=None, *args, **kws):
-      _Element.__init__(self, bundle, 'br', True, 'start', parent, *args, **kws)
+      _Element.__init__(self, bundle, 'br', 'start', parent, *args, **kws)
 
   def br(self, *args, **kws):
     with _Mutliple._Br(self.bundle, self, *args, **kws):
@@ -317,7 +315,7 @@ class _Mutliple(_Partical):
 class _Button(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
     _Mutliple.__init__(
-      self, bundle, 'button', True, 'start', parent, *args, **kws)
+      self, bundle, 'button', 'start', parent, *args, **kws)
 
 
 class _Code(_Mutliple):
@@ -327,17 +325,17 @@ class _Code(_Mutliple):
 
 class _Div(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'div', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'div', 'start', parent, *args, **kws)
 
 
 class _H2(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'h2', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'h2', 'start', parent, *args, **kws)
 
 
 class _H5(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'h5', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'h5', 'start', parent, *args, **kws)
 
 
 class _Nav(_Mutliple):
@@ -347,34 +345,32 @@ class _Nav(_Mutliple):
 
 class _P(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'p', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'p', 'start', parent, *args, **kws)
 
 
 class _Pre(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'pre', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'pre', 'start', parent, *args, **kws)
 
 
 class _S(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(
-      self, bundle, 's', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 's', 'start', parent, *args, **kws)
 
 
 class _Span(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(
-      self, bundle, 'span', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'span', 'start', parent, *args, **kws)
 
 
 class _Th(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'th', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'th', 'start', parent, *args, **kws)
 
 
 class _Td(_Mutliple):
   def __init__(self, bundle, parent=None, *args, **kws):
-    _Mutliple.__init__(self, bundle, 'td', True, 'start', parent, *args, **kws)
+    _Mutliple.__init__(self, bundle, 'td', 'start', parent, *args, **kws)
 
 
 class _Head(_Partical):
@@ -384,7 +380,7 @@ class _Head(_Partical):
   class _Title(_Element):
     def __init__(self, bundle, parent, *args, **kws):
       _Element.__init__(
-        self, bundle, 'title', True, 'start', parent, *args, **kws)
+        self, bundle, 'title', 'start', parent, *args, **kws)
 
   def title(self, *args):
     with _Head._Title(self.bundle, self, *args):
@@ -392,7 +388,7 @@ class _Head(_Partical):
 
   class _Meta(_Element):
     def __init__(self, bundle, **kws):
-      _Element.__init__(self, bundle, 'meta', htmltext=False, **kws)
+      _Element.__init__(self, bundle, 'meta', **kws)
 
   def meta(self, **kws):
     with _Head._Meta(self.bundle, parent=self, **kws):
@@ -414,7 +410,7 @@ class _Body(_Mutliple):
   class _Script(_Element):
     def __init__(self, bundle, parent, *args, **kws):
       _Element.__init__(
-        self, bundle, 'script', False, 'start', parent,
+        self, bundle, 'script', 'start', parent,
         *args if len(args) > 0 else '', **kws)
 
   def script(self, *args, **kws):
