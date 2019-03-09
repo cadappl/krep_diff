@@ -11,8 +11,6 @@ def _dict_merge(ret, dictb):
 
 
 class _FileBundle(object):
-  FILE_HTML = 'html'
-  FILE_TEXT = 'txt'
 
   def __init__(self, bundles):
     self.fbundles = dict()
@@ -31,11 +29,6 @@ class _FileBundle(object):
     if bundle:
       bundle.write(html)
 
-  def write_text(self, text):
-    bundle = self.fbundles.get(_FileBundle.FILE_TEXT)
-    if bundle:
-      bundle.write(text)
-
 
 class _Element(object):  # pylint: disable=R0902
   PHRASE_INIT = 0
@@ -48,7 +41,6 @@ class _Element(object):  # pylint: disable=R0902
       parent=None, *args, **kws):
 
     self.name = name
-    self.both = htmltext
     self.bundle = bundle
     self.args = list()
     self.kws = dict()
@@ -153,9 +145,6 @@ class _Element(object):  # pylint: disable=R0902
         for arg in self.args:
           alem += str(arg)
 
-        if self.both:
-          self.bundle.write_text(alem)
-
         elem += self._escape(alem)
         self.args = list()
 
@@ -175,9 +164,6 @@ class _Element(object):  # pylint: disable=R0902
           alem += str(arg)
         self.args = list()
 
-        if self.both:
-          self.bundle.write_text(alem)
-
         elem += self._escape(alem)
         if not ended and (self.end_tag or self.name):
           if self.end_tag:
@@ -193,7 +179,7 @@ class _Element(object):  # pylint: disable=R0902
         self.update_phrase = _Element.PHRASE_COMPLETE
 
       if elem:
-        self.bundle.write_html(elem)
+        self.bundle.write(elem)
 
   def text(self, *args):
     self.write(*args)
@@ -437,40 +423,27 @@ class _Body(_Mutliple):
 
 
 class FormattedFile(_Element):
-  def __init__(self, name, format):  # pylint: disable=W0622
-    bundle = dict()
-
+  def __init__(self, name, format=None):  # pylint: disable=W0622
     fname, _ = os.path.splitext(name)
-    format = format.lower()
-    if format in ('text', 'all'):
-      if format == 'all':
-        name = '%s.txt' % fname
+    self.fp = open('%s.html' % fname, 'w')
 
-      bundle[_FileBundle.FILE_TEXT] = name
-
-    if format in ('htm', 'html', 'all'):
-      if format == 'all':
-        name = '%s.html' % fname
-
-      bundle[_FileBundle.FILE_HTML] = name
-
-    _Element.__init__(self, _FileBundle(bundle), 'html')
+    _Element.__init__(self, self.fp, 'html')
 
   def __exit__(self, exc_type, exc_value, traceback):
     self.close()
 
   def close(self):
     self.update(action='end')
-    self.bundle.close()
+    self.fp.close()
 
   def head(self):
-    return _Head(self.bundle, parent=self)
+    return _Head(self.fp, parent=self)
 
   def body(self):
-    return _Body(self.bundle, parent=self)
+    return _Body(self.fp, parent=self)
 
   @staticmethod
-  def open(name, format):  # pylint: disable=W0622
+  def open(name, format=None):  # pylint: disable=W0622
     return FormattedFile(name, format)
 
 
