@@ -24,6 +24,9 @@ As the tool involves both `subcmds` and `topics`, the variable
 ```sh
 ├── LICENSE
 ├── README.md
+├── asserts
+│   ├── css
+│   └── js
 ├── subcmds
 │   ├── git_diff_subcmd.py
 │   └── repo_diff_subcmd.py
