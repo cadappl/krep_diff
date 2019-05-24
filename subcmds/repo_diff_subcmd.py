@@ -160,7 +160,7 @@ purposed formats."""
                       with table.tr() as tr:
                         with tr.wtd() as td:
                           result = results.get(pname)
-                          if options.gitiles and result.remote:
+                          if options.gitiles and result and result.remote:
                             td.a(
                               pname, href='%s/plugins/gitiles/%s' % (
                                 result.remote, pname))
@@ -200,7 +200,7 @@ purposed formats."""
                       with table.tr() as tr:
                         with tr.wtd() as td:
                           result = results.get(pname)
-                          if options.gitiles and result.remote:
+                          if options.gitiles and result and result.remote:
                             td.a(
                               pname, href='%s/plugins/gitiles/%s' % (
                                 result.remote, pname))
@@ -231,7 +231,7 @@ purposed formats."""
                       with table.tr() as tr:
                         with tr.wtd() as td:
                           result = results.get(pname)
-                          if options.gitiles and result.remote:
+                          if options.gitiles and result and result.remote:
                             td.a(
                               pname, href='%s/plugins/gitiles/%s' % (
                                 result.remote, pname))
