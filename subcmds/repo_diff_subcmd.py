@@ -108,7 +108,7 @@ purposed formats."""
         removed_projects.append(project)
 
     with FormattedFile.open(
-        os.path.join(options.output, 'index.html'), 'html') as outfile:
+        os.path.join(options.output, 'index.html')) as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
         head.title('Log Report for Manifest Difference')

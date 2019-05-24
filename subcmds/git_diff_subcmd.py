@@ -451,7 +451,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       results=None, full=False):
 
     res = Result(remote)
-    with FormattedFile.open(filename, 'html') as outfile:
+    with FormattedFile.open(filename) as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
         head.title('Logs of %s' % name)
