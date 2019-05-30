@@ -447,12 +447,13 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'index.html'),
-      pattern, remote, gitiles, details, gen_no_merge, results, full=True)
+      pattern, remote, gitiles, details, gen_no_merge, results,
+      result=result, full=True)
 
     GitDiffSubcmd._generate_html(
       brefs, erefs, args, project, name, root, output,
       os.path.join(output, 'filter.html'),
-      pattern, remote, gitiles, details, gen_no_merge, results)
+      pattern, remote, gitiles, details, gen_no_merge, results, result=result)
 
     result.dump()
     if not quiet:
@@ -462,9 +463,12 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   def _generate_html(  # pylint: disable=R0915
       brefs, erefs, args, project, name, root, output, filename,  # pylint: disable=W0622
       pattern, remote=None, gitiles=True, details=None, gen_no_merge=False,
-      results=None, full=False):
+      results=None, result=None, full=False):
 
-    res = Result(remote)
+    res = result
+    if res is None:
+      res = Result(remote)
+
     with FormattedFile.open(filename) as outfile:
       with outfile.head() as head:
         head.meta(charset='utf-8')
