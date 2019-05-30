@@ -1,4 +1,5 @@
 
+import json
 import os
 import re
 import time
@@ -20,7 +21,8 @@ CommitInfo = namedtuple('CommitInfo', 'sha1,date,author,committer,title,info')
 
 
 class Persist(object):
-  def __init__(self, full, no_merge, filter, filter_no_merge):
+  def __init__(self, filename, full=0, no_merge=0, filter=0, filter_no_merge=0):
+    self.filename = filename
     self.full = full
     self.no_merge = no_merge
     self.filter = filter
@@ -30,16 +32,34 @@ class Persist(object):
     return len(self.full) + len(self.no_merge) \
       + len(self.filter) + len(self.filter_no_merge)
 
+  def dump(self):
+    with open(self.filename, 'w') as fp:
+      json.dump([self.full, self.no_merge, self.filter, self.no_merge], fp)
+
+  def load(self):
+    if self.filename and os.path.exists(self.filename):
+      with open(self.filename, 'r') as fp:
+        self.full, self.no_merge, self.filter, self.filter_no_merge = \
+          json.load(fp)
+
+  def count(self):
+    return self.full + self.no_merge + self.filter + self.filter_no_merge
+
+  def value(self):
+    return [self.full, self.no_merge, self.filter, self.filter_no_merge]
+
+
 class Result(Persist):
   def __init__(self, remote=None, full=0, no_merge=0,
-               filter=0, filter_no_merge=0):
+               filter=0, filter_no_merge=0, filename=None):
 
-    Persist.__init__(self, full, no_merge, filter, filter_no_merge)
+    Persist.__init__(self, filename, full, no_merge, filter, filter_no_merge)
 
     self.remote = remote
+    self.load()
 
   def __len__(self):
-    return self.full + self.no_merge + self.filter + self.filter_no_merge
+    return self.count()
 
   def __str__(self):
     return '<%r remote=%s full=%d no_merge=%s filter=%d filter_no_merge=%d>' \
@@ -393,6 +413,15 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
         else:
           return ''
 
+    start = time.time()
+    if not os.path.exists(output):
+      os.makedirs(output)
+
+    result = Result(remote, filename=os.path.join(output, 'result.json'))
+    if result.count():
+      results[name] = result
+      return
+
     num = 0
     brefs = list()
     if len(args) < 2:
@@ -409,13 +438,10 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       # if two sha-1s are equaling, return
       if erefs == brefs[-1]:
         if results:
-          results.put(name, [0, 0, 0, 0])
+          result.dump()
+          results[name] = result
 
         return
-
-    start = time.time()
-    if not os.path.exists(output):
-      os.makedirs(output)
 
     details = Details()
     GitDiffSubcmd._generate_html(
@@ -428,21 +454,7 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       os.path.join(output, 'filter.html'),
       pattern, remote, gitiles, details, gen_no_merge, results)
 
-    # try cleaning the directory and parents
-    def file_num_in_dir(dname):
-      if os.path.exists(dname):
-        return len(filter(lambda d: d not in ['.', '..'], os.listdir(dname)))
-      else:
-        return -1
-
-    dirname = output
-    while len(dirname) > len(root) and file_num_in_dir(dirname) == 0:
-      os.rmdir(dirname)
-      dirname = os.path.dirname(dirname)
-
-    if dirname != output:
-      print(' > %s cleaned' % name)
-
+    result.dump()
     if not quiet:
         print('Totally cost: %s' % GitDiffSubcmd.time_diff(time.time(), start))
 
