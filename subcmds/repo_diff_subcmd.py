@@ -80,7 +80,8 @@ purposed formats."""
         argp, origins[project],
         project, options.output,
         os.path.join(options.output, project),
-        pattern, remote, options.gitiles, options.gen_no_merge, results)
+        pattern, remote, options.gitiles, options.gen_no_merge, results,
+        quiet=True)
 
       print('Handle %s with %s' % (
         origins[project], GitDiffSubcmd.time_diff(time.time(), start)))
