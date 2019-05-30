@@ -380,7 +380,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
   @staticmethod
   def generate_report(  # pylint: disable=R0915
       args, project, name, root, output, # pylint: disable=W0622
-      pattern, remote=None, gitiles=True, gen_no_merge=False, results=None):
+      pattern, remote=None, gitiles=True, gen_no_merge=False, results=None,
+      quiet=False):
     def _secure_sha(gitp, refs):
       ret, sha1 = gitp.rev_parse(refs)
       if ret == 0:
@@ -442,7 +443,8 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
     if dirname != output:
       print(' > %s cleaned' % name)
 
-    print('Totally cost: %s' % GitDiffSubcmd.time_diff(time.time(), start))
+    if not quiet:
+        print('Totally cost: %s' % GitDiffSubcmd.time_diff(time.time(), start))
 
   @staticmethod
   def _generate_html(  # pylint: disable=R0915
