@@ -131,13 +131,14 @@ purposed formats."""
 
         bd.p()
         with bd.div(id='accordion') as acc:
-          index = 1
+          index = 0
           for pinfo, title in (
               (new_projects, 'New Projects'),
               (modified_projects, 'Modified Projects')):
             if not pinfo:
               continue
 
+            index += 1
             with acc.div(clazz='card w-75', id='entire_%d' % index) as pdiv:
               name = 'project_%d' % index
               hid = 'head_%d' % index
