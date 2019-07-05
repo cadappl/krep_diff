@@ -465,6 +465,9 @@ gerrit server which can provide a query of the commit if gerrit is enabled."""
       pattern, remote=None, gitiles=True, details=None, gen_no_merge=False,
       results=None, result=None, full=False):
 
+    if remote:
+      remote = remote.rstrip('/')
+
     res = result
     if res is None:
       res = Result(remote)
